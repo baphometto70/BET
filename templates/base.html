@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <title>Scommesse – Console</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root{--bg:#fff;--fg:#111;--muted:#666;--pri:#0b63f3;--bor:#e5e7eb}
+    body{font-family:system-ui,Arial,sans-serif;background:var(--bg);color:var(--fg);margin:24px}
+    h1{font-size:22px;margin:0 0 6px}
+    .muted{color:var(--muted);font-size:13px}
+    .tabs{display:flex;gap:8px;margin:12px 0 16px}
+    .tab{padding:10px 14px;border:1px solid var(--bor);border-bottom:none;border-radius:8px 8px 0 0;background:#f8fafc;cursor:pointer}
+    .tab.active{background:#fff;color:#000;border-color:#cbd5e1}
+    .panel{border:1px solid var(--bor);border-radius:0 8px 8px 8px;padding:16px}
+    .row{display:flex;gap:16px;flex-wrap:wrap}
+    .col{flex:1 1 360px}
+    .card{border:1px solid var(--bor);border-radius:8px;padding:16px;margin-bottom:16px}
+    label{display:block;margin:6px 0 4px}
+    input[type="text"],input[type="date"],select{padding:8px;width:100%;box-sizing:border-box}
+    .btn{display:inline-block;padding:10px 14px;border-radius:8px;border:1px solid #0b63f3;background:#0b63f3;color:#fff;cursor:pointer}
+    .btn.secondary{background:#fff;color:#0b63f3}
+    .badges label{display:block}
+    textarea{width:100%;height:340px;white-space:pre;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+    .alert{margin:8px 0;padding:10px;border-radius:8px;background:#eaf6ff;border:1px solid #b6e0fe}
+    a{color:#0b63f3;text-decoration:none}
+  </style>
+</head>
+<body>
+  <h1>⚽️ Scommesse — Console</h1>
+  <div class="muted">Pipeline giornaliera, storico, training e report… su quattro tab.</div>
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}<div class="alert">{{ messages[0] }}</div>{% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</body>
+</html>

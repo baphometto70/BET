@@ -1,0 +1,22 @@
+{
+  "features": [
+    "xG_for_5_home",
+    "xG_against_5_home",
+    "xG_for_5_away",
+    "xG_against_5_away",
+    "rest_days_home",
+    "rest_days_away",
+    "derby_flag",
+    "europe_flag_home",
+    "europe_flag_away",
+    "meteo_flag",
+    "style_ppda_home",
+    "style_ppda_away",
+    "travel_km_away"
+  ],
+  "n_samples": 7120,
+  "created_at": "2025-11-07T09:34:25.425004",
+  "algo": "lgbm",
+  "cv_splits": 5,
+  "cv_logloss": 19.511906354523692
+}

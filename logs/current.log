@@ -1,0 +1,5 @@
+[START] predict — 2025-11-05 17:24:53
+$ python model_pipeline.py --predict
+[OK] predictions.csv scritto (9 righe).
+[OK] report HTML: /Users/gennaro.taurino/Documents/DEV/BET/report.html
+[END] predict — 2025-11-05 17:24:57

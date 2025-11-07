@@ -1,0 +1,25 @@
+{
+  "timezone": "Europe/Rome",
+  "blend_lambda_major": 0.6,
+  "blend_lambda_serie_a": 0.75,
+  "thresholds": {
+    "edge_1x2": 0.04,
+    "edge_handicap_dnb": 0.03,
+    "edge_totals": 0.03,
+    "edge_bigmatch_derby": 0.06
+  },
+  "staking": {
+    "flat_pct": 0.0125,
+    "kelly_fraction": 0.5,
+    "kelly_min_edge": 0.06
+  },
+  "confidence_bands": {
+    "A_min": 0.62,
+    "B_min": 0.58,
+    "C_min": 0.54
+  },
+  "lines": {
+    "under_borderline_push_prefer": 3.25,
+    "over_safe_line": 1.5
+  }
+}

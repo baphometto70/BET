@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="tabs">
+  <div class="tab {% if active_tab=='daily' %}active{% endif %}" onclick="showTab('daily')">Daily</div>
+  <div class="tab {% if active_tab=='history' %}active{% endif %}" onclick="showTab('history')">History & Train</div>
+  <div class="tab {% if active_tab=='predict' %}active{% endif %}" onclick="showTab('predict')">Predict & Reports</div>
+  <div class="tab {% if active_tab=='settings' %}active{% endif %}" onclick="showTab('settings')">Settings & Logs</div>
+</div>
+
+<!-- STATO GLOBALE -->
+<div class="card" style="margin-top:6px; display:flex; align-items:center; gap:10px;">
+  <div id="job-dot" style="width:10px;height:10px;border-radius:50%;background:#10b981;"></div>
+  <div>
+    <strong>Stato:</strong> <span id="job-state">Idle</span>
+    <span class="muted">— si aggiorna automaticamente.</span>
+  </div>
+</div>
+
+<!-- DAILY -->
+<div id="panel-daily" class="panel" style="display:{% if active_tab=='daily' %}block{% else %}none{% endif %}">
+  <form action="{{ url_for('daily') }}" method="post">
+    <div class="row">
+      <div class="col">
+        <label>Data</label>
+        <input type="date" name="date" value="{{ state.today }}">
+        <label>Campionati</label>
+        <div class="badges">
+          {% for code,name in comp_choices %}
+          <label><input type="checkbox" name="comps" value="{{ code }}" {% if code in ['SA','PL','PD','BL1'] %}checked{% endif %}> {{ code }} — {{ name }}</label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="col">
+        <label>Delay scraping (sec)</label>
+        <input type="text" name="delay" value="0.6">
+        <label><input type="checkbox" name="do_predict" checked> Esegui anche predizione</label>
+        <div style="margin-top:12px">
+          <button class="btn action-btn" type="submit">Avvia pipeline del giorno</button>
+        </div>
+        <div class="muted" style="margin-top:6px">Esegue: fixtures → odds → features → (predict)</div>
+      </div>
+    </div>
+  </form>
+  <div class="card" style="margin-top:16px">
+    <h3>Log in tempo reale</h3>
+    <div class="muted">Si aggiornano automaticamente ogni 2s.</div>
+    <textarea id="logbox-daily" readonly placeholder="In attesa di log…"></textarea>
+    <div style="margin-top:6px">
+      <a class="btn secondary" href="{{ url_for('download', fname='logs/current.log') }}" target="_blank">Apri log in nuova scheda</a>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY & TRAIN -->
+<div id="panel-history" class="panel" style="display:{% if active_tab=='history' %}block{% else %}none{% endif %}">
+  <div class="row">
+    <div class="col">
+      <div class="card">
+        <h3>Costruisci storico</h3>
+        <form action="{{ url_for('history') }}" method="post">
+          <label>Da</label><input type="date" name="from" value="2023-07-01">
+          <label>A</label><input type="date" name="to" value="{{ state.today }}">
+          <label>Campionati</label>
+          <div class="badges">
+            {% for code,name in comp_choices %}
+            <label><input type="checkbox" name="comps_hist" value="{{ code }}" {% if code in ['SA','PL','PD','BL1'] %}checked{% endif %}> {{ code }} — {{ name }}</label>
+            {% endfor %}
+          </div>
+          <label>Ultime N (xG)</label><input type="text" name="n_recent_hist" value="5">
+          <label>Delay scraping</label><input type="text" name="delay_hist" value="0.6">
+          <div style="margin-top:10px"><button class="btn action-btn" type="submit">Genera storico</button></div>
+          <div class="muted" style="margin-top:6px">Output: data/historical_dataset.csv — Presente: {{ '✅' if state.has_hist else '❌' }}</div>
+        </form>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h3>Training</h3>
+        <form action="{{ url_for('train') }}" method="post">
+          <label>Modalità</label>
+          <select name="train_mode">
+            <option value="real" {% if state.has_hist %}selected{% endif %}>Reale (usa historical_dataset.csv)</option>
+            <option value="dummy" {% if not state.has_hist %}selected{% endif %}>Dummy (test rapido)</option>
+          </select>
+          <div style="margin-top:10px"><button class="btn action-btn" type="submit">Avvia training</button></div>
+          <div class="muted" style="margin-top:6px">Modello presente: {{ '✅' if state.has_model else '❌' }}</div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Log in tempo reale</h3>
+    <div class="muted">Si aggiornano automaticamente ogni 2s.</div>
+    <textarea id="logbox-history" readonly placeholder="In attesa di log…"></textarea>
+    <div style="margin-top:6px">
+      <a class="btn secondary" href="{{ url_for('download', fname='logs/current.log') }}" target="_blank">Apri log in nuova scheda</a>
+    </div>
+  </div>
+</div>
+
+<!-- PREDICT & REPORTS -->
+<div id="panel-predict" class="panel" style="display:{% if active_tab=='predict' %}block{% else %}none{% endif %}">
+  <div class="row">
+    <div class="col">
+      <div class="card">
+        <h3>Predizione & Report</h3>
+        <form action="{{ url_for('predict') }}" method="post">
+          <div class="muted">Usa fixtures.csv + features.csv correnti.</div>
+          <div style="margin-top:10px">
+            <button class="btn action-btn" type="submit">Esegui predizione</button>
+            <a class="btn secondary" href="{{ url_for('download', fname='report.html') }}">Apri report</a>
+            <a class="btn secondary" href="{{ url_for('download', fname='predictions.csv') }}">Scarica predictions.csv</a>
+          </div>
+          <div class="muted" style="margin-top:6px">
+            Report: {{ '✅' if state.has_report else '❌' }} — Predictions: {{ '✅' if state.has_preds else '❌' }}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Log in tempo reale</h3>
+    <div class="muted">Si aggiornano automaticamente ogni 2s.</div>
+    <textarea id="logbox-predict" readonly placeholder="In attesa di log…"></textarea>
+    <div style="margin-top:6px">
+      <a class="btn secondary" href="{{ url_for('download', fname='logs/current.log') }}" target="_blank">Apri log in nuova scheda</a>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS & LOGS -->
+<div id="panel-settings" class="panel" style="display:{% if active_tab=='settings' %}block{% else %}none{% endif %}">
+  <div class="card">
+    <h3>Note & Log</h3>
+    <textarea id="logbox-settings" readonly placeholder="I log compariranno qui dopo l’esecuzione di un’azione."></textarea>
+    <div style="margin-top:6px">
+      <a class="btn secondary" href="{{ url_for('download', fname='logs/current.log') }}" target="_blank">Apri log in nuova scheda</a>
+    </div>
+  </div>
+</div>
+
+<script>
+function showTab(name){
+  const panels = ["daily","history","predict","settings"];
+  panels.forEach(p=>{
+    document.getElementById("panel-"+p).style.display = (p===name) ? "block":"none";
+  });
+  const tabs = document.querySelectorAll(".tab");
+  tabs.forEach(t=>t.classList.remove("active"));
+  const idx = panels.indexOf(name);
+  document.getElementsByClassName("tab")[idx].classList.add("active");
+}
+
+/* --- LIVE LOG (polling ogni 2s) + SEMAFORO stato --- */
+const LOG_URL = "{{ url_for('download', fname='logs/current.log') }}";
+let lastLog = "";
+
+function setState(running){
+  const dot = document.getElementById('job-dot');
+  const st  = document.getElementById('job-state');
+  const btns = document.querySelectorAll('.action-btn');
+  if(running){
+    dot.style.background = '#ef4444'; // rosso
+    st.textContent = 'In esecuzione';
+    btns.forEach(b => { b.disabled = true; b.style.opacity = 0.6; });
+  }else{
+    dot.style.background = '#10b981'; // verde
+    st.textContent = 'Idle';
+    btns.forEach(b => { b.disabled = false; b.style.opacity = 1; });
+  }
+}
+
+function updateLog(id){
+  const box = document.getElementById(id);
+  if (!box) return;
+  fetch(LOG_URL, {cache:'no-store'})
+    .then(r => r.ok ? r.text() : "")
+    .then(t => {
+      if (t !== "" && box.value !== t) {
+        box.value = t;
+        box.scrollTop = box.scrollHeight;
+      }
+      // Semaforo: se nel log esiste START senza END => running
+      const hasStart = t.includes('[START]');
+      const hasEnd   = t.includes('[END]');
+      setState(hasStart && !hasEnd);
+      lastLog = t;
+    })
+    .catch(()=>{ /* ignora errori transitori */ });
+}
+
+function tick(){
+  updateLog('logbox-daily');
+  updateLog('logbox-history');
+  updateLog('logbox-predict');
+  updateLog('logbox-settings');
+}
+setInterval(tick, 2000);
+tick();
+</script>
+
+{% endblock %}

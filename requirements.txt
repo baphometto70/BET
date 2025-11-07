@@ -1,0 +1,11 @@
+Flask>=3.0.0
+pandas
+numpy
+scikit-learn
+lightgbm
+joblib
+requests
+rapidfuzz
+beautifulsoup4
+lxml
+matplotlib

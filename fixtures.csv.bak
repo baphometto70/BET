@@ -1,0 +1,10 @@
+match_id,league,date,time_local,home,away,odds_1,odds_x,odds_2,line_ou,odds_over,odds_under,odds_btts_yes,odds_btts_no,odds_ou25_over,odds_ou25_under,overround,sanitized
+20251105_QARABAĞ_AĞDAM_FK_CHELSEA_FC_UEFA_CHAMPIONS_LEAGUE,UEFA Champions League,2025-11-05,17:45,Qarabağ Ağdam FK,Chelsea FC,,,,2.5,,,,,1.98,1.91,,False
+20251105_PAPHOS_FC_VILLARREAL_CF_UEFA_CHAMPIONS_LEAGUE,UEFA Champions League,2025-11-05,17:45,Paphos FC,Villarreal CF,,,,2.5,,,,,1.59,2.39,,False
+20251105_NEWCASTLE_UNITED_FC_ATHLETIC_CLUB_UEFA_CHAMPIONS_LEAGUE,UEFA Champions League,2025-11-05,20:00,Newcastle United FC,Athletic Club,,,,2.5,,,,,1.88,2.12,,False
+20251105_SPORT_LISBOA_E_BENFICA_BAYER_04_LEVERKUSEN_UEFA_CHAMPIONS_LEAGUE,UEFA Champions League,2025-11-05,20:00,Sport Lisboa e Benfica,Bayer 04 Leverkusen,,,,2.5,,,,,1.74,2.28,,False
+20251105_MANCHESTER_CITY_FC_BORUSSIA_DORTMUND_UEFA_CHAMPIONS_LEAGUE,UEFA Champions League,2025-11-05,20:00,Manchester City FC,Borussia Dortmund,,,,2.5,,,,,1.44,2.62,,False
+20251105_CLUB_BRUGGE_KV_FC_BARCELONA_UEFA_CHAMPIONS_LEAGUE,UEFA Champions League,2025-11-05,20:00,Club Brugge KV,FC Barcelona,,,,2.5,,,,,1.3,3.25,,False
+20251105_OLYMPIQUE_DE_MARSEILLE_ATALANTA_BC_UEFA_CHAMPIONS_LEAGUE,UEFA Champions League,2025-11-05,20:00,Olympique de Marseille,Atalanta BC,,,,2.5,,,,,1.88,2.21,,False
+20251105_FC_INTERNAZIONALE_MILANO_FK_KAIRAT_UEFA_CHAMPIONS_LEAGUE,UEFA Champions League,2025-11-05,20:00,FC Internazionale Milano,FK Kairat,,,,2.5,,,,,1.18,4.5,,False
+20251105_AFC_AJAX_GALATASARAY_SK_UEFA_CHAMPIONS_LEAGUE,UEFA Champions League,2025-11-05,20:00,AFC Ajax,Galatasaray SK,,,,2.5,,,,,1.44,2.5,,False

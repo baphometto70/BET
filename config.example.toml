@@ -1,0 +1,10 @@
+# Copia questo file come "config.toml" e compila i token.
+
+[api]
+# TheOddsAPI (per quote oggi/futuro). Free-tier: inserisci la tua chiave.
+# In alternativa esporta la variabile d'ambiente THEODDSAPI_KEY.
+THEODDSAPI_KEY = "be349fbdc363b146f201c8ecd4f11454"
+
+# Football-Data.org (serve ad altri script, es. run_day.py).
+# Puoi anche usare la variabile d'ambiente FOOTBALL_DATA_ORG_TOKEN.
+FOOTBALL_DATA_ORG_TOKEN = "9f48528ff8d5482f8851ae808eaa9f13"

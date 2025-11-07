@@ -1,0 +1,1 @@
+python historical_builder.py --from 2023-07-01 --to 2024-06-30 --comps "SA,PL,PD,BL1,EL" --n_recent 5 --delay 0.5

@@ -1,0 +1,10 @@
+date,time_local,league,home,away,pick_main,confidence,segno_max,prob_max,ou25,btts
+2025-11-05,17:45,UEFA Champions League,Qarabağ Ağdam FK,Chelsea FC,X2,medium,2,"53,4","67,3 OVR / 32,7 UDR","65,6 YES"
+2025-11-05,17:45,UEFA Champions League,Paphos FC,Villarreal CF,2,high,2,"62,5","46,9 OVR / 53,1 UDR","44,0 YES"
+2025-11-05,20:00,UEFA Champions League,Newcastle United FC,Athletic Club,NoBet,low,1,"43,5","56,7 OVR / 43,3 UDR","59,2 YES"
+2025-11-05,20:00,UEFA Champions League,Sport Lisboa e Benfica,Bayer 04 Leverkusen,1X,medium,1,"57,8","68,8 OVR / 31,2 UDR","65,4 YES"
+2025-11-05,20:00,UEFA Champions League,Manchester City FC,Borussia Dortmund,1X,medium,1,"49,8","38,2 OVR / 61,8 UDR","42,4 YES"
+2025-11-05,20:00,UEFA Champions League,Club Brugge KV,FC Barcelona,X2,medium,2,"52,2","82,2 OVR / 17,8 UDR","78,4 YES"
+2025-11-05,20:00,UEFA Champions League,Olympique de Marseille,Atalanta BC,1X,medium,1,"46,2","34,8 OVR / 65,2 UDR","40,5 YES"
+2025-11-05,20:00,UEFA Champions League,FC Internazionale Milano,FK Kairat,1,high,1,"83,7","65,0 OVR / 35,0 UDR","39,1 YES"
+2025-11-05,20:00,UEFA Champions League,AFC Ajax,Galatasaray SK,NoBet,low,2,"43,7","78,0 OVR / 22,0 UDR","76,0 YES"

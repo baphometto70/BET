@@ -1,0 +1,12 @@
+# config.toml
+[api]
+# Imposta i token qui o tramite variabili d'ambiente
+# FOOTBALL_DATA_ORG_TOKEN / THEODDSAPI_KEY.
+FOOTBALL_DATA_ORG_TOKEN = "9f48528ff8d5482f8851ae808eaa9f13"
+THEODDSAPI_KEY          = "be349fbdc363b146f201c8ecd4f11454"
+
+[settings]
+# soglia oltre cui scartare righe (overround eccessivo = mercato sporco)
+max_overround = 0.6
+# bookmaker whitelist (vuota = tutti)
+bookmakers = []
