@@ -68,6 +68,16 @@ HIST_1X2_PATH = ROOT / "data" / "historical_1x2_enhanced.csv"
 MODEL_DIR = ROOT / "models"
 MODEL_DIR.mkdir(exist_ok=True)
 
+# Modelli ottimizzati (priorità massima se disponibili)
+OU_MODEL_PATH_OPT = MODEL_DIR / "bet_ou25_optimized.joblib"
+OU_IMPUTER_PATH_OPT = MODEL_DIR / "imputer_ou25_optimized.joblib"
+OU_META_PATH_OPT = MODEL_DIR / "meta_ou25_optimized.json"
+
+X2_MODEL_PATH_OPT = MODEL_DIR / "bet_1x2_optimized.joblib"
+X2_IMPUTER_PATH_OPT = MODEL_DIR / "imputer_1x2_optimized.joblib"
+X2_META_PATH_OPT = MODEL_DIR / "meta_1x2_optimized.json"
+
+# Modelli originali (fallback)
 OU_MODEL_PATH = MODEL_DIR / "bet_ou25.joblib"
 OU_SCALER_PATH = MODEL_DIR / "scaler_ou25.joblib"
 OU_IMPUTER_PATH = MODEL_DIR / "imputer_ou25.joblib"
@@ -907,29 +917,53 @@ def predict_and_report(date_str: str, comps: Optional[List[str]] = None):
         print("[ERR] Nessun match da predire. Verifica fixtures.csv e features.csv")
         sys.exit(1)
 
-    # Carica modelli (se esistono)
-    ou_imputer, ou_scaler, ou_clf = _load_model_triplet(
-        OU_MODEL_PATH, OU_SCALER_PATH, OU_IMPUTER_PATH
-    )
-    x2_imputer, x2_scaler, x2_clf = _load_model_triplet(
-        X2_MODEL_PATH, X2_SCALER_PATH, X2_IMPUTER_PATH
-    )
-    
+    # Carica modelli OTTIMIZZATI con priorità (fallback a modelli originali)
+    # Prova prima con modelli ottimizzati
+    if X2_MODEL_PATH_OPT.exists():
+        x2_imputer, _, x2_clf = _load_model_triplet(
+            X2_MODEL_PATH_OPT, Path("dummy"), X2_IMPUTER_PATH_OPT
+        )
+        x2_scaler = None  # I modelli ottimizzati non usano scaler
+        print("[INFO] 🚀 Usando modello 1X2 OTTIMIZZATO")
+    else:
+        x2_imputer, x2_scaler, x2_clf = _load_model_triplet(
+            X2_MODEL_PATH, X2_SCALER_PATH, X2_IMPUTER_PATH
+        )
+
+    if OU_MODEL_PATH_OPT.exists():
+        ou_imputer, _, ou_clf = _load_model_triplet(
+            OU_MODEL_PATH_OPT, Path("dummy"), OU_IMPUTER_PATH_OPT
+        )
+        ou_scaler = None  # I modelli ottimizzati non usano scaler
+        print("[INFO] 🚀 Usando modello OU OTTIMIZZATO")
+    else:
+        ou_imputer, ou_scaler, ou_clf = _load_model_triplet(
+            OU_MODEL_PATH, OU_SCALER_PATH, OU_IMPUTER_PATH
+        )
+
     if ou_clf is None:
         print("[WARN] Modello OU 2.5 non trovato. Esegui: python model_pipeline.py --train-ou")
     if x2_clf is None:
         print("[WARN] Modello 1X2 non trovato. Uso fallback (quote o xG) per calcolare probabilità 1X2.")
 
-    # Carica feature list dai meta
+    # Carica feature list dai meta (priorità a meta ottimizzati)
     ou_feats = FEATURES_OU
     x2_feats = FEATURES_1X2
     ou_meta: Dict[str, Any] = {}
     x2_meta: Dict[str, Any] = {}
     try:
-        if OU_META_PATH.exists():
+        # Carica meta ottimizzati se disponibili, altrimenti originali
+        if OU_META_PATH_OPT.exists():
+            ou_meta = json.loads(OU_META_PATH_OPT.read_text())
+            ou_feats = [c for c in ou_meta.get("features", []) if c in df.columns]
+        elif OU_META_PATH.exists():
             ou_meta = json.loads(OU_META_PATH.read_text())
             ou_feats = [c for c in ou_meta.get("features", []) if c in df.columns]
-        if X2_META_PATH.exists():
+
+        if X2_META_PATH_OPT.exists():
+            x2_meta = json.loads(X2_META_PATH_OPT.read_text())
+            x2_feats = [c for c in x2_meta.get("features", []) if c in df.columns]
+        elif X2_META_PATH.exists():
             x2_meta = json.loads(X2_META_PATH.read_text())
             x2_feats = [c for c in x2_meta.get("features", []) if c in df.columns]
     except Exception as e:
