@@ -3,7 +3,10 @@
 from pathlib import Path
 
 import pandas as pd
-import tomllib
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
 
 ROOT = Path(__file__).resolve().parent
 CFG = ROOT / "config.toml"

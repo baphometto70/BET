@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Predizioni Scommesse</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95rem;
+        }
+
+        thead {
+            background: #667eea;
+            color: white;
+        }
+
+        th {
+            padding: 15px 10px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .campionato {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 0.85rem;
+        }
+
+        .partita {
+            font-weight: 500;
+            color: #2c3e50;
+            font-size: 0.95rem;
+        }
+
+        .data-orario {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        .esito {
+            background: #e8f5e9;
+            padding: 6px 12px;
+            border-radius: 6px;
+            display: inline-block;
+            margin: 3px 0;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #2e7d32;
+        }
+
+        .percentuale {
+            font-weight: 700;
+            color: #667eea;
+            font-size: 1rem;
+        }
+
+        .high-prob {
+            color: #e91e63;
+            font-weight: 700;
+        }
+
+        .medium-prob {
+            color: #ff9800;
+            font-weight: 700;
+        }
+
+        .confidence-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 5px;
+        }
+
+        .confidence-high {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .confidence-medium {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .confidence-low {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: #7f8c8d;
+        }
+
+        .no-data h2 {
+            margin-bottom: 10px;
+        }
+
+        .esiti-gruppo {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .esito-riga {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚽ Predizioni Scommesse</h1>
+            <p>Partite del {{ selected_date }}</p>
+        </div>
+
+        <div class="content">
+            {% if error %}
+            <div class="no-data">
+                <h2>⚠️ {{ error }}</h2>
+            </div>
+            {% elif not partite or partite|length == 0 %}
+            <div class="no-data">
+                <h2>Nessuna predizione disponibile</h2>
+                <p>Genera le predizioni dalla dashboard principale</p>
+            </div>
+            {% else %}
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 12%;">Campionato</th>
+                        <th style="width: 25%;">Partita</th>
+                        <th style="width: 12%;">Data e Orario</th>
+                        <th style="width: 41%;">Esiti Previsti</th>
+                        <th style="width: 10%;">Top Pick</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for partita in partite %}
+                    <tr>
+                        <td><span class="campionato">{{ partita.league }}</span></td>
+                        <td><span class="partita">{{ partita.home }} - {{ partita.away }}</span></td>
+                        <td><span class="data-orario">{{ partita.date }}<br>⏰ {{ partita.kickoff_time }}</span></td>
+                        <td>
+                            <div class="esiti-gruppo">
+                                {% for esito in partita.esiti %}
+                                <div class="esito-riga">
+                                    <span class="esito">{{ esito.market_name }}</span>
+                                    <span class="percentuale {% if esito.probability >= 0.75 %}high-prob{% elif esito.probability >= 0.65 %}medium-prob{% endif %}">
+                                        {{ (esito.probability * 100)|round(1) }}%
+                                        <span class="confidence-badge confidence-{{ esito.confidence }}">{{ esito.confidence.upper() }}</span>
+                                    </span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td style="text-align: center;">
+                            <span class="percentuale high-prob">{{ (partita.top_pick.probability * 100)|round(1) }}%</span>
+                            <br>
+                            <small style="color: #7f8c8d;">{{ partita.top_pick.market_name }}</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

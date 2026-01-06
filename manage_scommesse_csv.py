@@ -38,7 +38,7 @@ FIX_COLS = [
 ]
 FEA_COLS = [
     "match_id",
-    "xG_for_5_home","xG_against_5_home","xG_for_5_away","xG_against_5_away",
+    "xg_for_home","xg_against_home","xg_for_away","xg_against_away",
     "rest_days_home","rest_days_away",
     "injuries_key_home","injuries_key_away",
     "derby_flag","europe_flag_home","europe_flag_away",
@@ -128,10 +128,10 @@ def append_feature_row(match_id=None):
         return input(f"{name}: ").strip()
     row = {
         "match_id": match_id,
-        "xG_for_5_home": g("xG_for_5_home"),
-        "xG_against_5_home": g("xG_against_5_home"),
-        "xG_for_5_away": g("xG_for_5_away"),
-        "xG_against_5_away": g("xG_against_5_away"),
+        "xg_for_home": g("xg_for_home"),
+        "xg_against_home": g("xg_against_home"),
+        "xg_for_away": g("xg_for_away"),
+        "xg_against_away": g("xg_against_away"),
         "rest_days_home": g("rest_days_home"),
         "rest_days_away": g("rest_days_away"),
         "injuries_key_home": g("injuries_key_home"),
@@ -180,7 +180,7 @@ def fetch_from_api(date_str, comp_codes):
             "match_id": mid,"league": comp_name,"date": date_str,"time_local": time_local,
             "home": home,"away": away,"odds_1": "","odds_x": "","odds_2": "","line_ou": "","odds_over": "","odds_under": ""
         })
-        rows_fea.append({"match_id": mid,"xG_for_5_home": "","xG_against_5_home": "","xG_for_5_away": "","xG_against_5_away": "",
+        rows_fea.append({"match_id": mid,"xg_for_home": "","xg_against_home": "","xg_for_away": "","xg_against_away": "",
                          "rest_days_home": "","rest_days_away": "","injuries_key_home": "","injuries_key_away": "",
                          "derby_flag": "0","europe_flag_home": "0","europe_flag_away": "0","meteo_flag": "0",
                          "style_ppda_home": "","style_ppda_away": "","travel_km_away": ""})
@@ -298,8 +298,8 @@ def demo():
     rows_fea = [
         {
             "match_id": f"{today.replace('-','')}_NAPOLI_COMO_SERIE_A",
-            "xG_for_5_home": "1.85","xG_against_5_home": "0.90",
-            "xG_for_5_away": "1.05","xG_against_5_away": "1.55",
+            "xg_for_home": "1.85","xg_against_home": "0.90",
+            "xg_for_away": "1.05","xg_against_away": "1.55",
             "rest_days_home": "6","rest_days_away": "6",
             "injuries_key_home": "0","injuries_key_away": "1",
             "derby_flag": "0","europe_flag_home": "1","europe_flag_away": "0",
@@ -308,8 +308,8 @@ def demo():
         },
         {
             "match_id": f"{today.replace('-','')}_CREMONESE_JUVENTUS_SERIE_A",
-            "xG_for_5_home": "0.92","xG_against_5_home": "1.30",
-            "xG_for_5_away": "1.60","xG_against_5_away": "0.85",
+            "xg_for_home": "0.92","xg_against_home": "1.30",
+            "xg_for_away": "1.60","xg_against_away": "0.85",
             "rest_days_home": "6","rest_days_away": "6",
             "injuries_key_home": "1","injuries_key_away": "2",
             "derby_flag": "0","europe_flag_home": "0","europe_flag_away": "1",

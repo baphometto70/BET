@@ -1,12 +1,53 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
+import logging
+import sys
+
+# --- Controllo Dipendenze Essenziali ---
+try:
+    # tomllib è standard in Python 3.11+, tomli è per versioni precedenti.
+    # Questo blocco assicura che uno dei due sia disponibile.
+    import tomllib
+except ImportError:
+    try:
+        import tomli
+    except ImportError:
+        print("\n[FATAL] Dipendenza mancante: 'tomli'. L'applicazione non può avviarsi.", file=sys.stderr)
+        print("        Esegui questo comando nel tuo ambiente virtuale e riavvia:", file=sys.stderr)
+        print("        pip install tomli\n", file=sys.stderr)
+        sys.exit(1)
+# --- Fine Controllo ---
+
 import shlex
 import subprocess
 import threading
 import time
 from datetime import date
+from functools import partial
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from apscheduler.triggers.cron import CronTrigger
+    from apscheduler.triggers.interval import IntervalTrigger
+    _HAS_APS = True
+except Exception:
+    _HAS_APS = False
 from pathlib import Path
+from typing import Optional
+import atexit
+import socket
+import sys # Import sys
+
+try:
+    from database import SessionLocal
+    from models import Feature, Fixture, Odds
+    from sqlalchemy import func
+except ImportError:
+    # Gestisce il caso in cui il DB non sia configurato, per evitare crash all'avvio.
+    SessionLocal = None
+    Fixture = Odds = Feature = None
+    func = None
+    print("[WARN] Modelli DB o SQLAlchemy non trovati. Le funzionalità legate ai dati saranno disabilitate.", file=sys.stderr)
 
 from flask import (
     Flask,
@@ -16,22 +57,125 @@ from flask import (
     render_template,
     request,
     send_from_directory,
+    jsonify,
     url_for,
 )
 
 ROOT = Path(__file__).resolve().parent
+
+# Preferisci il DB SQLite locale e una cache Matplotlib scrivibile per test via web app
+os.environ.setdefault("USE_SQLITE", "1")
+MPLCONFIG_DIR = Path.home() / ".cache" / "bet_mpl"
+MPLCONFIG_DIR.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("MPLCONFIGDIR", str(MPLCONFIG_DIR))
+
+AUTO_FIXTURES_ENABLED = os.getenv("AUTO_FIXTURES_ENABLED", "1") == "1"
+AUTO_FIXTURES_COMPS = os.getenv("AUTO_FIXTURES_COMPS", "SA,PL,PD,BL1,FL1,DED,PPL")
+AUTO_FIXTURES_MIN_DAYS = int(os.getenv("AUTO_FIXTURES_MIN_DAYS", "7"))
+AUTO_FIXTURES_TARGET_DAYS = int(os.getenv("AUTO_FIXTURES_TARGET_DAYS", "30"))
+
 APP = Flask(__name__)
 APP.secret_key = "dev-local-only"
 APP.config["TEMPLATES_AUTO_RELOAD"] = True
 
 LOGS_DIR = ROOT / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
-CURRENT_LOG = LOGS_DIR / "current.log"
+
+# --- CONFIGURAZIONE LOGGING ---
+# Sostituisco la gestione manuale dei file con il modulo standard `logging`.
+# Questo fornisce timestamp, livelli di log (INFO, ERROR) e un formato strutturato.
+LOG_FILE = LOGS_DIR / "service.log"
+
+# Configura il logger principale
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_FILE, encoding='utf-8'),
+        logging.StreamHandler() # Mostra i log anche a console
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Definisci qui i percorsi dei file di output per poterli gestire centralmente
+PRED_PATH = ROOT / "predictions.csv"
+REPORT_HTML = ROOT / "report.html"
 
 # stato semplice del job
 _job_lock = threading.Lock()
 _job_running = False
 _job_name = None  # "daily" | "history" | "train" | "predict"
+_job_last_message = "" # Messaggio finale del job (successo/errore)
+_job_stop_requested = False # Flag per interrompere un job
+_child_processes = [] # Lista per tenere traccia dei processi figli
+
+def _log_fixture_coverage(min_days_left: int = 7, target_days: int = 30):
+    """
+    Avvisa se il DB ha fixture troppo vicine nel tempo (serve aggiornare).
+    Logga la massima data presente e quanti giorni di copertura restano.
+    """
+    days_left = None
+    if not SessionLocal or not Fixture or not func:
+        return days_left
+    db = SessionLocal()
+    try:
+        max_date = db.query(func.max(Fixture.date)).scalar()
+        if not max_date:
+            logger.warning("DB fixture vuoto. Esegui `python fixtures_fetcher.py --date YYYY-MM-DD --days 30 --comps \"SA,PL,PD,BL1,FL1,DED,PPL\"`.")
+            return days_left
+        days_left = (max_date - date.today()).days
+        if days_left < min_days_left:
+            logger.warning(
+                f"Copertura fixture solo fino al {max_date} (tra {days_left} giorni). "
+                f"Esegui `python fixtures_fetcher.py --date {date.today().isoformat()} --days {target_days} --comps \"SA,PL,PD,BL1,FL1,DED,PPL\"`."
+            )
+        else:
+            logger.info(f"Fixture presenti fino al {max_date} (copertura ~{days_left} giorni).")
+    except Exception as exc:
+        logger.debug(f"Errore nel controllo copertura fixture: {exc}", exc_info=True)
+    finally:
+        db.close()
+    return days_left
+
+
+def _cleanup_child_processes():
+    """Funzione di pulizia registrata con atexit per terminare i processi figli."""
+    for p in _child_processes:
+        if p.poll() is None:  # Se il processo è ancora in esecuzione
+            print(f"\n[EXIT] Termino il processo figlio in background (PID: {p.pid})...", file=sys.stderr)
+            p.terminate()
+            try:
+                p.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                p.kill()
+
+atexit.register(_cleanup_child_processes)
+
+
+def _auto_fetch_fixtures_if_needed():
+    """Se la copertura è bassa e auto fetch è abilitato, lancia fixtures_fetcher."""
+    if not AUTO_FIXTURES_ENABLED:
+        logger.info("Auto fetch fixtures disabilitato (AUTO_FIXTURES_ENABLED=0).")
+        return
+    days_left = _log_fixture_coverage(AUTO_FIXTURES_MIN_DAYS, AUTO_FIXTURES_TARGET_DAYS)
+    if days_left is None:
+        return
+    if days_left >= AUTO_FIXTURES_MIN_DAYS:
+        return
+    cmd = (
+        f"{sys.executable} fixtures_fetcher.py "
+        f"--date {date.today().isoformat()} "
+        f"--days {AUTO_FIXTURES_TARGET_DAYS} "
+        f'--comps "{AUTO_FIXTURES_COMPS}"'
+    )
+    logger.info(f"[AUTO] Copertura bassa ({days_left} giorni). Avvio fetch fixtures: {cmd}")
+    ok = run_cmd(cmd, timeout=1800)
+    if ok:
+        logger.info("[AUTO] Fetch fixtures completato.")
+    else:
+        logger.error("[AUTO] Fetch fixtures fallito.")
+
+# Controllo immediato copertura fixture all'avvio (dopo la definizione delle funzioni)
 
 
 # ---- Niente cache sul browser (evita pagine “ferme”) ----
@@ -64,146 +208,347 @@ COMP_CHOICES = [
 ]
 
 
-def _append_log(text: str):
-    with open(CURRENT_LOG, "a", encoding="utf-8") as f:
-        f.write(text)
-        if not text.endswith("\n"):
-            f.write("\n")
-
-
 def run_cmd(cmd: str, timeout: int = 3600):
-    """Esegue un comando nella root del progetto e logga stdout/stderr su CURRENT_LOG."""
-    _append_log(f"$ {cmd}\n")
+    """Esegue un comando, logga in tempo reale ed è interrompibile."""
+    global _job_stop_requested, _child_processes
+
+    cmd_parts = shlex.split(cmd)
+    if cmd_parts and cmd_parts[0] == "python":
+        cmd_parts[0] = sys.executable
+
+    # Logga il comando in modo sicuro per la shell
+    log_cmd = " ".join(shlex.quote(c) for c in cmd_parts)
+    logger.info(f"Esecuzione comando: $ {log_cmd}")
+    proc = None
     try:
-        proc = subprocess.run(
-            shlex.split(cmd),
+        # Usa Popen per avere controllo non bloccante sul processo
+        proc = subprocess.Popen(
+            cmd_parts,  # Passa la lista di argomenti direttamente
             cwd=str(ROOT),
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Unisci stderr in stdout
             text=True,
+            encoding='utf-8',
+            errors='replace',
             env=os.environ.copy(),
-            timeout=timeout,
         )
-        if proc.stdout:
-            _append_log(proc.stdout)
-        if proc.stderr:
-            _append_log("--- STDERR ---")
-            _append_log(proc.stderr)
+        _child_processes.append(proc)
+
+        # Un solo thread per leggere l'output combinato
+        def log_pipe(pipe):
+            buffer = []
+            last_flush_time = time.time()
+            try:
+                for line in iter(pipe.readline, ''):
+                    buffer.append(line.strip())
+                    # Scrivi il buffer ogni 0.5 secondi o se raggiunge 20 righe
+                    # per ridurre il numero di operazioni di scrittura su file.
+                    now = time.time()
+                    if buffer and (now - last_flush_time > 0.5 or len(buffer) >= 20):
+                        logger.info("\n".join(buffer))
+                        buffer.clear()
+                        last_flush_time = now
+            finally:
+                # Assicurati di scrivere le righe rimanenti nel buffer prima di uscire
+                if buffer:
+                    logger.info("\n".join(buffer))
+                pipe.close()
+
+        stdout_thread = threading.Thread(target=log_pipe, args=(proc.stdout,))
+        stdout_thread.start()
+
+        start_time = time.time()
+        while proc.poll() is None:  # Finché il processo è in esecuzione
+            with _job_lock:
+                if _job_stop_requested:
+                    logger.warning("Richiesta di interruzione ricevuta. Termino il processo...")
+                    proc.terminate()  # Invia SIGTERM (più "gentile")
+                    try:
+                        proc.wait(timeout=5)  # Attendi 5s che termini
+                    except subprocess.TimeoutExpired:
+                        logger.warning("Il processo non ha risposto, forzo la chiusura (kill).")
+                        proc.kill()  # Invia SIGKILL (forzato)
+                    stdout_thread.join(timeout=5)
+                    return False  # Il job è stato interrotto
+
+            if time.time() - start_time > timeout:
+                logger.error(f"Timeout dopo {timeout}s per il comando: {log_cmd}")
+                proc.terminate()
+                proc.kill()
+                stdout_thread.join()
+                return False
+
+            time.sleep(0.2)  # Polling per non usare 100% CPU
+
+        # Attendi che il thread di logging finisca
+        stdout_thread.join(timeout=10) # Aggiungi timeout per sicurezza
+
         if proc.returncode != 0:
-            _append_log(f"[ERRORE] Comando fallito con exit code {proc.returncode}")
+            logger.error(f"Comando fallito con exit code {proc.returncode}: {log_cmd}")
         return proc.returncode == 0
-    except subprocess.TimeoutExpired:
-        _append_log(f"[ERRORE] Timeout dopo {timeout}s")
-        return False
     except Exception as e:
-        _append_log(f"[ERRORE] {e}")
+        logger.error(f"Eccezione durante l'esecuzione del comando: {e}", exc_info=True)
         return False
+    finally:
+        if proc and proc in _child_processes:
+            _child_processes.remove(proc)
+
+# Controllo immediato copertura fixture all'avvio (dopo la definizione delle funzioni principali)
+_log_fixture_coverage()
+_auto_fetch_fixtures_if_needed()
 
 
 def job_wrapper(target_name: str, func, *args, **kwargs):
-    global _job_running, _job_name
-    with _job_lock:
-        if _job_running:
-            _append_log(
-                f"[INFO] Job già in esecuzione: '{_job_name}'. Ignoro nuova richiesta."
-            )
-            return
-        _job_running = True
-        _job_name = target_name
+    """Wraps a job function to handle state and logging."""
+    global _job_running, _job_name, _job_last_message, _job_stop_requested    
+    success = False
     try:
-        # reset log all’avvio del job
-        CURRENT_LOG.write_text(
-            f"[START] {target_name} — {time.strftime('%Y-%m-%d %H:%M:%S')}\n",
-            encoding="utf-8",
-        )
-        func(*args, **kwargs)
-        _append_log(f"[END] {target_name} — {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"--- Inizio Job: {target_name} ---")
+        success = func(*args, **kwargs)
+        logger.info(f"--- Fine Job: {target_name} (Successo: {success}) ---")
     finally:
         with _job_lock:
+            job_was_stopped = _job_stop_requested
+            if job_was_stopped:
+                _job_last_message = f"Job '{target_name}' interrotto dall'utente."
+            elif success:
+                _job_last_message = f"Job '{target_name}' completato con successo."
+            else:
+                _job_last_message = f"Job '{target_name}' fallito o completato con errori."
             _job_running = False
             _job_name = None
+            _job_stop_requested = False # Resetta per sicurezza
 
 
 def run_daily_pipeline(d: str, comps: str, delay: str, do_predict: bool):
     """Esegue la pipeline giornaliera completa."""
-    success = True
+    # AZIONE CRITICA: Pulisci i file di output vecchi all'inizio di ogni esecuzione.
+    # Questo previene la visualizzazione di dati stantii se la pipeline fallisce.
+    if REPORT_HTML.exists():
+        try:
+            REPORT_HTML.unlink()
+            logger.info("Vecchio report.html rimosso.")
+        except OSError as e:
+            logger.warning(f"Impossibile rimuovere vecchio report.html: {e}")
+    if PRED_PATH.exists():
+        try:
+            PRED_PATH.unlink()
+            logger.info("Vecchio predictions.csv rimosso.")
+        except OSError as e:
+            logger.warning(f"Impossibile rimuovere vecchio predictions.csv: {e}")
     
     # Step 1: Fetch fixtures
-    _append_log(f"[STEP 1/4] Recupero partite per {d}...\n")
-    if not run_cmd(f'python fixtures_fetcher.py --date {d} --comps "{comps}"'):
-        _append_log("[ERRORE] Fetch fixtures fallito\n")
-        success = False
+    logger.info(f"[PIPELINE 1/4] Recupero partite per {d}...")
+    if not run_cmd(f'python fixtures_fetcher.py --date {d} --comps {comps}'):
+        logger.error("Fetch fixtures fallito. Pipeline interrotta.")
+        return False
     
     # Step 2: Fetch odds
-    _append_log(f"[STEP 2/4] Recupero quote per {d}...\n")
-    if not run_cmd(f'python odds_fetcher.py --date {d} --comps "{comps}" --delay 0.3'):
-        _append_log("[WARN] Fetch odds fallito (continuo comunque)\n")
+    logger.info(f"[PIPELINE 2/4] Recupero quote per {d}...")
+    if not run_cmd(f'python odds_fetcher.py --date {d} --comps {comps} --delay 0.3'):
+        logger.warning("Fetch odds fallito (continuo comunque).")
     
     # Step 3: Populate features
-    _append_log(f"[STEP 3/4] Popolamento features per {d}...\n")
+    logger.info(f"[PIPELINE 3/4] Popolamento features per {d}...")
     if not run_cmd(
-        f'python features_populator.py --date {d} --comps "{comps}" --n_recent 5 --delay {delay} --cache 1'
+        f'python features_populator.py --date {d} --comps {comps} --n_recent 5 --delay {delay} --cache 1'
     ):
-        _append_log("[WARN] Popolamento features fallito (continuo comunque)\n")
+        logger.error("Popolamento features fallito. Pipeline interrotta.")
+        return False
     
     # Step 4: Predictions
     if do_predict:
-        _append_log(f"[STEP 4/4] Generazione previsioni...\n")
-        if not run_cmd("python model_pipeline.py --predict"):
-            _append_log("[ERRORE] Generazione previsioni fallita\n")
-            success = False
+        logger.info(f"[PIPELINE 4/4] Generazione previsioni...")
+        if not run_cmd(
+            f'python model_pipeline.py --predict --date {d} --comps {comps}'
+        ):
+            logger.error("Generazione previsioni fallita.")
+            return False
     
-    if success:
-        _append_log("[OK] Pipeline giornaliera completata con successo\n")
-    else:
-        _append_log("[WARN] Pipeline completata con alcuni errori\n")
+    logger.info("Pipeline giornaliera completata con successo.")
+    return True
 
 
 def run_history_builder(dfrom: str, dto: str, comps: str, nrec: str, delay: str):
-    run_cmd(
-        f'python historical_builder.py --from {dfrom} --to {dto} --comps "{comps}" --n_recent {nrec} --delay {delay}'
+    return run_cmd(
+        f'python historical_builder.py --from {dfrom} --to {dto} --comps {comps} --n_recent {nrec} --delay {delay}'
     )
 
 
 def run_training(mode: str):
     if mode == "dummy":
-        run_cmd("python model_pipeline.py --train-dummy")
+        return run_cmd("python model_pipeline.py --train-dummy")
     else:
-        run_cmd("python model_pipeline.py --train")
+        return run_cmd("python model_pipeline.py --train")
 
 
 def run_predict_only():
-    run_cmd("python model_pipeline.py --predict")
+    return run_cmd("python model_pipeline.py --predict")
 
 
+def run_results_fetcher():
+    """Esegue lo script per scaricare i risultati delle partite."""
+    return run_cmd("python results_fetcher.py")
+
+
+def run_map_builder():
+    """Esegue lo script per costruire i mapping dei team."""
+    return run_cmd("python map_builder.py")
+
+
+def run_odds_bulk_fetch(days: str):
+    """Esegue lo scaricamento massivo delle quote future per un numero di giorni specificato."""
+    return run_cmd(f"python odds_fetcher.py --bulk-fetch --verbose --bulk-days {days}")
+
+
+def get_odds_coverage_info() -> dict:
+    """
+    Controlla fino a che data sono presenti le quote nel DB
+    e restituisce la data e un avviso se la copertura è bassa.
+    """
+    if not SessionLocal: # Controlla se il DB è disponibile
+        return { "warning": True, "message": "Database non configurato." }
+
+    db = SessionLocal()
+    try:
+        # Trova la data massima delle partite FUTURE per cui abbiamo le quote
+        max_date_result = (
+            db.query(func.max(Fixture.date))
+            .join(Odds, Fixture.match_id == Odds.match_id)
+            .filter(Fixture.date >= date.today()) # Considera solo le quote future
+            .scalar()
+        )
+
+        if not max_date_result:
+            # Se non ci sono quote future, controlla se esistono almeno le partite
+            # per dare un messaggio di diagnostica più utile.
+            future_fixtures_count = db.query(Fixture).filter(Fixture.date >= date.today()).count()
+            if future_fixtures_count > 0:
+                message = f"Trovate {future_fixtures_count} partite future, ma nessuna con quote. Lanciare il Bulk Fetch o controllare lo script 'odds_fetcher'."
+            else:
+                message = "Nessuna quota per partite future. Lancia il Bulk Fetch."
+
+            return {
+                "coverage_date": None,
+                "coverage_days": 0,
+                "warning": True,
+                "message": message,
+            }
+
+        coverage_date = max_date_result
+        today = date.today()
+        days_left = (coverage_date - today).days
+
+        # Avviso se la copertura è inferiore a 7 giorni
+        warning = days_left < 7
+        msg = f"Quote coperte fino al {coverage_date.strftime('%d/%m/%Y')}."
+        if warning:
+            msg += f" Mancano {days_left} giorni. Consigliato eseguire il Bulk Fetch."
+        
+        return { "coverage_date": coverage_date.isoformat(), "coverage_days": days_left, "warning": warning, "message": msg }
+    except Exception as e:
+        logger.error(f"Errore nel calcolo della copertura quote: {e}", exc_info=True)
+        return { "warning": True, "message": "Errore nel calcolo della copertura quote." }
+    finally:
+        if db:
+            db.close()
 def _read_last_log_tail(max_chars: int = 12000) -> str:
-    if not CURRENT_LOG.exists():
+    """Legge la coda del file di log per visualizzarla nella UI."""
+    # NOTA: Con il nuovo sistema di logging, questo legge il file `service.log`.
+    # L'output dei job viene catturato in tempo reale e loggato, quindi
+    # questo file conterrà sia i log dell'app che l'output dei comandi.
+    if not LOG_FILE.exists():
         return ""
-    data = CURRENT_LOG.read_text(encoding="utf-8", errors="ignore")
-    # tail “povero”: mostra solo le ultime N chars per non pesare in pagina
-    return data[-max_chars:]
+    with open(LOG_FILE, "rb") as f:
+        f.seek(0, os.SEEK_END)
+        f.seek(max(f.tell() - max_chars, 0), os.SEEK_SET)
+        return f.read().decode('utf-8', errors='ignore')
 
 
-def current_state(today_override: str | None = None) -> dict:
-    return {
+def get_job_status() -> dict:
+    with _job_lock:
+        return {
+            "job_running": _job_running,
+            "job_name": _job_name,
+            "last_message": _job_last_message,
+        }
+
+def current_state(today_override: Optional[str] = None) -> dict:
+    state = {
         "today": today_override or date.today().isoformat(),
         "has_hist": (ROOT / "data" / "historical_dataset.csv").exists(),
-        "has_model": (ROOT / "models" / "bet_ou25.joblib").exists(),
-        "has_report": (ROOT / "report.html").exists(),
-        "has_preds": (ROOT / "predictions.csv").exists(),
-        "job_running": _job_running,
-        "job_name": _job_name or "",
+        "has_model": (ROOT / "models" / "bet_ou25.joblib").exists(), # Controlla un modello a caso
+        "has_report": REPORT_HTML.exists(),
+        "has_preds": PRED_PATH.exists(),
     }
+    job_status = get_job_status()
+    state["job_running"] = job_status["job_running"]
+    state["job_name"] = job_status["job_name"] or ""
+    state["last_message"] = job_status["last_message"]
+    state["odds_coverage"] = get_odds_coverage_info()
+    return state
+
+def _start_job_and_render(
+    job_name: str,
+    target_func,
+    args_tuple: tuple,
+):
+    global _job_running, _job_name, _job_last_message, _job_stop_requested
+    with _job_lock:
+        if _job_running:
+            return jsonify({"status": "job_already_running", "job_name": _job_name, "message": f"Un job ('{_job_name}') è già in esecuzione. Attendi che termini."})
+
+        # Imposta lo stato PRIMA di avviare il thread per evitare race condition
+        _job_running = True
+        _job_name = job_name
+        _job_last_message = ""
+        _job_stop_requested = False
+
+        thread_args = (job_name, target_func) + args_tuple
+        t = threading.Thread(target=job_wrapper, args=thread_args, daemon=True)
+        t.start()
+        
+    return jsonify({"status": "job_started", "job_name": job_name})
+
+
+def _schedule_start_job(job_name: str, target_func, args_tuple: tuple):
+    """Start a job from scheduler (no Flask request). Returns True if started."""
+    global _job_running, _job_name, _job_last_message, _job_stop_requested
+    with _job_lock:
+        if _job_running:
+            logger.warning(f"[SCHED] Job '{job_name}' non avviato: un altro job ('{_job_name}') è in esecuzione.")
+            return False
+
+        # Imposta stato e avvia thread di esecuzione tramite job_wrapper
+        _job_running = True
+        _job_name = job_name
+        _job_last_message = ""
+        _job_stop_requested = False
+
+        thread_args = (job_name, target_func) + args_tuple
+        t = threading.Thread(target=job_wrapper, args=thread_args, daemon=True)
+        t.start()
+
+    logger.info(f"[SCHED] Job '{job_name}' avviato dallo scheduler.")
+    return True
 
 
 # ====== HOME ======
 @APP.get("/")
 def index():
+    """Render the main dashboard page."""
+    state = current_state()
+    # Aggiungi un messaggio flash se la copertura delle quote è bassa o assente
+    odds_coverage_info = state.get("odds_coverage", {})
+    if odds_coverage_info.get("warning"):
+        flash(odds_coverage_info.get("message", "Controllo copertura quote non riuscito."), "warning")
+
     return render_template(
         "index.html",
         comp_choices=COMP_CHOICES,
-        state=current_state(),
+        state=state,
         last_log=_read_last_log_tail(),
-        active_tab="daily",
+        active_tab="daily",  # Set a default to keep details panels closed
     )
 
 
@@ -216,25 +561,11 @@ def daily():
     delay = request.form.get("delay", "0.6")
     do_predict = request.form.get("do_predict") == "on"
 
-    if _job_running:
-        flash("Un job è già in esecuzione. Attendi che termini.")
-    else:
-        t = threading.Thread(
-            target=job_wrapper,
-            args=("daily", run_daily_pipeline, d, comps, delay, do_predict),
-            daemon=True,
-        )
-        t.start()
-        flash(f"Pipeline del giorno avviata per {d} [{comps}]. Controlla i log.")
-
-    return render_template(
-        "index.html",
-        comp_choices=COMP_CHOICES,
-        state=current_state(today_override=d),
-        last_log=_read_last_log_tail(),
-        active_tab="daily",
+    return _start_job_and_render(
+        job_name="daily",
+        target_func=run_daily_pipeline,
+        args_tuple=(d, comps, delay, do_predict),
     )
-
 
 # ====== HISTORY ======
 @APP.post("/history", endpoint="history")
@@ -246,67 +577,84 @@ def history():
     nrec = request.form.get("n_recent_hist", "5")
     delay = request.form.get("delay_hist", "0.6")
 
-    if _job_running:
-        flash("Un job è già in esecuzione. Attendi che termini.")
-    else:
-        t = threading.Thread(
-            target=job_wrapper,
-            args=("history", run_history_builder, dfrom, dto, comps, nrec, delay),
-            daemon=True,
-        )
-        t.start()
-        flash(f"Storico avviato: {dfrom} → {dto} [{comps}]. Controlla i log.")
-
-    return render_template(
-        "index.html",
-        comp_choices=COMP_CHOICES,
-        state=current_state(),
-        last_log=_read_last_log_tail(),
-        active_tab="history",
+    return _start_job_and_render(
+        job_name="history",
+        target_func=run_history_builder,
+        args_tuple=(dfrom, dto, comps, nrec, delay),
     )
-
 
 # ====== TRAIN ======
 @APP.post("/train", endpoint="train")
 def train():
     mode = request.form.get("train_mode", "real")  # real | dummy
-    if _job_running:
-        flash("Un job è già in esecuzione. Attendi che termini.")
-    else:
-        t = threading.Thread(
-            target=job_wrapper, args=("train", run_training, mode), daemon=True
-        )
-        t.start()
-        flash(f"Training '{mode}' avviato. Controlla i log.")
-
-    return render_template(
-        "index.html",
-        comp_choices=COMP_CHOICES,
-        state=current_state(),
-        last_log=_read_last_log_tail(),
-        active_tab="history",
+    return _start_job_and_render(
+        job_name="train",
+        target_func=run_training,
+        args_tuple=(mode,),
     )
-
 
 # ====== PREDICT ======
 @APP.post("/predict", endpoint="predict")
 def predict():
-    if _job_running:
-        flash("Un job è già in esecuzione. Attendi che termini.")
-    else:
-        t = threading.Thread(
-            target=job_wrapper, args=("predict", run_predict_only), daemon=True
-        )
-        t.start()
-        flash("Predizione avviata. Controlla i log.")
-
-    return render_template(
-        "index.html",
-        comp_choices=COMP_CHOICES,
-        state=current_state(),
-        last_log=_read_last_log_tail(),
-        active_tab="predict",
+    # Questa rotta non esiste nel nuovo HTML, ma la lascio per API compatibility
+    # Potrebbe essere unita o rimossa in futuro.
+    return _start_job_and_render(
+        job_name="predict",
+        target_func=run_predict_only,
+        args_tuple=(),
     )
+
+# ====== FETCH RESULTS (manual trigger) ======
+@APP.post("/fetch_results", endpoint="fetch_results")
+def fetch_results():
+    """Avvia manualmente il job per scaricare i risultati."""
+    return _start_job_and_render(
+        job_name="fetch_results",
+        target_func=run_results_fetcher,
+        args_tuple=(),
+    )
+
+# ====== BUILD MAPS (manual trigger) ======
+@APP.post("/build_maps", endpoint="build_maps")
+def build_maps():
+    """Avvia manualmente il job per costruire i team mappings."""
+    return _start_job_and_render(
+        job_name="build_maps",
+        target_func=run_map_builder,
+        args_tuple=(),
+    )
+
+# ====== ODDS BULK FETCH (manual trigger) ======
+@APP.post("/odds_bulk_fetch", endpoint="odds_bulk_fetch")
+def odds_bulk_fetch():
+    """Avvia manualmente il job per lo scaricamento massivo delle quote."""
+    days = request.form.get("bulk_days", "30")
+    return _start_job_and_render(
+        job_name="odds_bulk_fetch",
+        target_func=run_odds_bulk_fetch,
+        args_tuple=(days,),
+    )
+
+# ====== LOG TAIL (per polling JS) ======
+@APP.get("/log_tail")
+def log_tail():
+    return _read_last_log_tail()
+
+# ====== JOB STATUS (per polling JS) ======
+@APP.get("/job_status")
+def job_status():
+    return jsonify(get_job_status())
+
+# ====== STOP JOB ======
+@APP.post("/stop_job")
+def stop_job():
+    global _job_stop_requested
+    with _job_lock:
+        if _job_running:
+            _job_stop_requested = True
+            logger.info("Richiesta di interruzione del job in corso...")
+            return jsonify({"status": "stop_requested"})
+    return jsonify({"status": "no_job_running"})
 
 
 # ====== DOWNLOAD ======
@@ -321,10 +669,432 @@ def download(fname):
     )
 
 
+# ====== DATA VIEW (visualizza fixtures, odds, features) ======
+@APP.get("/data")
+def data_view():
+    """Visualizza fixtures, odds e features dal database."""
+    db = None
+    try:
+        if not SessionLocal:
+            return "Database non configurato.", 500
+        db = SessionLocal()
+        
+        # Esegui una singola query con JOIN per evitare il problema N+1
+        query_results = (
+            db.query(Fixture, Odds, Feature)
+            .outerjoin(Odds, Fixture.match_id == Odds.match_id)
+            .outerjoin(Feature, Fixture.match_id == Feature.match_id)
+            .order_by(Fixture.date.desc())
+            .all()
+        )
+        
+        data = []
+        for f, odds, feature in query_results:
+            data.append({
+                'match_id': f.match_id,
+                'date': f.date.isoformat() if f.date else '-',
+                'time': f.time_local or '-',
+                'league': f.league_code,
+                'home': f.home,
+                'away': f.away,
+                'odds_1': round(float(odds.odds_1), 2) if odds and odds.odds_1 else '-',
+                'odds_x': round(float(odds.odds_x), 2) if odds and odds.odds_x else '-',
+                'odds_2': round(float(odds.odds_2), 2) if odds and odds.odds_2 else '-',
+                'xg_for_home': round(float(feature.xg_for_home), 2) if feature and feature.xg_for_home else '-',
+                'xg_for_away': round(float(feature.xg_for_away), 2) if feature and feature.xg_for_away else '-',
+                'xg_against_home': round(float(feature.xg_against_home), 2) if feature and feature.xg_against_home else '-',
+                'xg_against_away': round(float(feature.xg_against_away), 2) if feature and feature.xg_against_away else '-',
+                'rest_days_home': feature.rest_days_home if feature else '-',
+                'rest_days_away': feature.rest_days_away if feature else '-',
+            })
+        
+        return render_template('data.html', data=data)
+    except Exception as e:
+        logger.error(f"Errore nel caricamento dati per /data: {e}", exc_info=True)
+        return f"Errore nel caricamento dati: {e}", 500
+    finally:
+        if db:
+            db.close()
+
+
+# ====== PREDICTIONS VIEW (xG Analysis) ======
+@APP.get("/predictions-xg")
+def predictions_xg():
+    """Visualizza analisi xG Expected Goals."""
+    try:
+        from predictions_generator import generate_predictions
+        from datetime import datetime
+        
+        date_param = request.args.get('date')
+        predictions = generate_predictions(date_param)
+        
+        return render_template('predictions_xg.html', 
+                             predictions=predictions,
+                             selected_date=date_param or datetime.now().strftime("%Y-%m-%d"))
+    
+    except Exception as e:
+        return f"Errore nel caricamento previsioni: {e}", 500
+
+
+def _calculate_proposal_reliability(proposals: list) -> dict:
+    """Calcola il conteggio delle proposte per livello di affidabilità."""
+    counts = {"high": 0, "medium": 0, "low": 0}
+    for p in proposals:
+        k = p.get('data_reliability') or 'low'
+        if k not in counts:
+            k = 'low'
+        counts[k] += 1
+    return counts
+
+
+# ====== PROPOSAL VIEW (Risultato più probabile) ======
+@APP.get("/proposta")
+def proposal_view():
+    """Visualizza la proposta calcolata (risultato più probabile)."""
+    try:
+        from proposal_generator import generate_proposals
+        from datetime import datetime
+        
+        date_param = request.args.get('date')
+        proposals = generate_proposals(date_param)
+
+        # Calcola riepilogo affidabilità per la UI
+        reliability_counts = _calculate_proposal_reliability(proposals)
+        return render_template('proposal.html', 
+                             proposals=proposals,
+                             selected_date=date_param or datetime.now().strftime("%Y-%m-%d"),
+                             reliability_counts=reliability_counts)
+    
+    except Exception as e:
+        return f"Errore nel caricamento proposta: {e}", 500
+
+
+@APP.get('/proposta_stats')
+def proposta_stats():
+    """Endpoint JSON che ritorna conteggi di affidabilità per una data."""
+    try:
+        from proposal_generator import generate_proposals
+        date_param = request.args.get('date')
+        proposals = generate_proposals(date_param)
+        return jsonify({"date": date_param or '', "counts": _calculate_proposal_reliability(proposals)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ====== RESULTS VIEW (Esiti partite) ======
+@APP.get("/esiti")
+def results_view():
+    """Visualizza esiti partite con probabilità previste."""
+    try:
+        from proposal_generator import generate_proposals
+        from datetime import datetime, timedelta
+        
+        # Mostra ultimi 7 giorni
+        date_param = request.args.get('date')
+        
+        # Se non specificato, mostra tutte le partite con risultato
+        all_proposals = []
+        if not date_param:
+            # Scarica risultati ultimi 7 giorni
+            for i in range(7):
+                d = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+                all_proposals.extend(generate_proposals(d))
+        else:
+            all_proposals = generate_proposals(date_param)
+        
+        # Filtra solo quelle con risultato
+        finished = [p for p in all_proposals if p['is_finished']]
+        
+        # Statistiche
+        total_finished = len(finished)
+        correct_predictions = len([p for p in finished if p['prediction_correct']])
+        accuracy = (correct_predictions / total_finished * 100) if total_finished > 0 else 0
+        
+        return render_template('results.html', 
+                             results=finished,
+                             total=total_finished,
+                             correct=correct_predictions,
+                             accuracy=round(accuracy, 1),
+                             selected_date=date_param)
+    
+    except Exception as e:
+        return f"Errore nel caricamento esiti: {e}", 500
+
+
+# ====== EXTENDED MARKETS ======
+@APP.get("/extended-markets")
+def extended_markets_view():
+    """Visualizza mercati estesi (DC, Multigol, GG/NG, ecc.)."""
+    try:
+        import pandas as pd
+        from datetime import datetime
+
+        date_param = request.args.get('date')
+        min_prob = float(request.args.get('min_prob', 0.60))
+        max_per_match = int(request.args.get('max_per_match', 3))
+
+        # Carica extended predictions
+        extended_path = ROOT / "extended_predictions.csv"
+        if not extended_path.exists():
+            return render_template('extended_markets.html',
+                                 error="Nessuna predizione estesa disponibile. Genera prima le predizioni.",
+                                 selected_date=date_param or datetime.now().strftime("%Y-%m-%d"),
+                                 categories={},
+                                 top_picks=[],
+                                 stats={})
+
+        df = pd.read_csv(extended_path)
+
+        # Filtra per data se specificata
+        if date_param:
+            # Estrai la data dal match_id (formato: YYYYMMDD_id_league)
+            df['match_date'] = df['match_id'].str[:8]
+            target_date = date_param.replace('-', '')
+            df = df[df['match_date'] == target_date]
+
+        # Filtra per probabilità minima
+        df_filtered = df[df['probability'] >= min_prob].copy()
+
+        # Limita per match
+        from collections import defaultdict
+        match_counts = defaultdict(int)
+        selected_bets = []
+
+        for _, bet in df_filtered.sort_values('probability', ascending=False).iterrows():
+            match_id = bet['match_id']
+            if match_counts[match_id] >= max_per_match:
+                continue
+            selected_bets.append(bet)
+            match_counts[match_id] += 1
+
+        df_selected = pd.DataFrame(selected_bets) if selected_bets else pd.DataFrame()
+
+        # Statistiche per categoria
+        if not df_selected.empty:
+            categories = {}
+            for cat in df_selected['category'].unique():
+                cat_df = df_selected[df_selected['category'] == cat]
+                categories[cat] = {
+                    'count': len(cat_df),
+                    'avg_prob': round(cat_df['probability'].mean() * 100, 1),
+                    'bets': cat_df.head(10).to_dict('records')
+                }
+
+            # Top 20 picks
+            top_picks = df_selected.nlargest(20, 'probability').to_dict('records')
+
+            # Statistiche generali
+            stats = {
+                'total_bets': len(df),
+                'filtered_bets': len(df_selected),
+                'avg_prob': round(df_selected['probability'].mean() * 100, 1) if len(df_selected) > 0 else 0,
+                'min_prob_filter': min_prob * 100,
+                'matches_analyzed': df['match_id'].nunique()
+            }
+        else:
+            categories = {}
+            top_picks = []
+            stats = {'total_bets': 0, 'filtered_bets': 0, 'avg_prob': 0, 'min_prob_filter': min_prob * 100, 'matches_analyzed': 0}
+
+        return render_template('extended_markets.html',
+                             categories=categories,
+                             top_picks=top_picks,
+                             stats=stats,
+                             selected_date=date_param or datetime.now().strftime("%Y-%m-%d"),
+                             min_prob=min_prob,
+                             max_per_match=max_per_match,
+                             error=None)
+
+    except Exception as e:
+        logger.error(f"Errore nel caricamento mercati estesi: {e}", exc_info=True)
+        return render_template('extended_markets.html',
+                             error=f"Errore: {str(e)}",
+                             categories={},
+                             top_picks=[],
+                             stats={},
+                             selected_date=date_param or datetime.now().strftime("%Y-%m-%d"))
+
+
+@APP.post("/generate-extended")
+def generate_extended():
+    """Genera predizioni estese per una data specifica."""
+    date_param = request.form.get('date') or date.today().isoformat()
+    min_prob = request.form.get('min_prob', '0.55')
+    top_n = request.form.get('top_n', '15')
+
+    cmd = f'python generate_extended_predictions.py --date {date_param} --top {top_n} --min-prob {min_prob}'
+
+    return _start_job_and_render(
+        job_name="generate_extended",
+        target_func=run_cmd,
+        args_tuple=(cmd, 600),
+    )
+
+
+@APP.get("/predizioni-semplici")
+def predizioni_semplici():
+    """Visualizzazione semplice e pulita delle predizioni: tabella con campionato, partita, orario, esiti e percentuali."""
+    try:
+        import pandas as pd
+        from datetime import datetime
+        from collections import defaultdict
+
+        date_param = request.args.get('date')
+
+        # Carica extended predictions
+        extended_path = ROOT / "extended_predictions.csv"
+        if not extended_path.exists():
+            return render_template('predizioni_semplici.html',
+                                 error="Nessuna predizione disponibile. Genera prima le predizioni.",
+                                 selected_date=date_param or datetime.now().strftime("%Y-%m-%d"),
+                                 partite=[])
+
+        df = pd.read_csv(extended_path)
+
+        # Filtra per data se specificata
+        if date_param:
+            df['match_date'] = df['match_id'].str[:8]
+            target_date = date_param.replace('-', '')
+            df = df[df['match_date'] == target_date]
+
+        if df.empty:
+            return render_template('predizioni_semplici.html',
+                                 error="Nessuna partita trovata per questa data",
+                                 selected_date=date_param or datetime.now().strftime("%Y-%m-%d"),
+                                 partite=[])
+
+        # Raggruppa per partita
+        partite = []
+        for match_id in df['match_id'].unique():
+            match_df = df[df['match_id'] == match_id].sort_values('probability', ascending=False)
+            first = match_df.iloc[0]
+
+            # Prendi i top 5 esiti per questa partita
+            esiti = []
+            for _, row in match_df.head(5).iterrows():
+                esiti.append({
+                    'market_name': row['market_name'],
+                    'probability': row['probability'],
+                    'confidence': row['confidence']
+                })
+
+            # Formatta la data
+            match_date_str = match_id[:8]
+            formatted_date = f"{match_date_str[6:8]}/{match_date_str[4:6]}/{match_date_str[:4]}"
+
+            partite.append({
+                'league': first['league'],
+                'home': first['home'],
+                'away': first['away'],
+                'date': formatted_date,
+                'kickoff_time': first['kickoff_time'],
+                'esiti': esiti,
+                'top_pick': {
+                    'market_name': first['market_name'],
+                    'probability': first['probability']
+                }
+            })
+
+        return render_template('predizioni_semplici.html',
+                             partite=partite,
+                             selected_date=date_param or datetime.now().strftime("%Y-%m-%d"),
+                             error=None)
+
+    except Exception as e:
+        logger.error(f"Errore nel caricamento predizioni semplici: {e}", exc_info=True)
+        return render_template('predizioni_semplici.html',
+                             error=f"Errore: {str(e)}",
+                             partite=[],
+                             selected_date=date_param or datetime.now().strftime("%Y-%m-%d"))
+
+
+# ====== LEGACY /predictions rotta (redirect) ======
+@APP.get("/predictions")
+def predictions_redirect():
+    """Redirect a /predictions-xg per compatibilità"""
+    return redirect("/predictions-xg")
+
+
+def find_free_port(start_port=5000, max_ports=100):
+    """Trova una porta TCP libera, partendo da `start_port`."""
+    for port in range(start_port, start_port + max_ports):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("", port))
+                return port
+            except OSError:
+                continue  # Porta occupata
+    return None # Nessuna porta libera trovata
+
+
 def main():
+    default_port = int(os.getenv("BET_DASH_PORT", "5000"))
+    host_to_use = "0.0.0.0"
+
+    port_to_use = find_free_port(start_port=default_port)
+    if port_to_use is None:
+        print(f"[ERRORE] Nessuna porta libera trovata nell'intervallo {default_port}-{default_port+100}.", file=sys.stderr)
+        sys.exit(1)
+    
+    if port_to_use != default_port:
+        print(f"[INFO] La porta {default_port} è occupata. L'app sarà disponibile sulla porta {port_to_use}.", file=sys.stderr)
+
+    # Avvia uno scheduler locale (BackgroundScheduler) per eseguire i job automaticamente.
+    if _HAS_APS:
+        try:
+            scheduler = BackgroundScheduler()
+
+            def _scheduled_daily():
+                # Calcola la data al momento dell'esecuzione
+                d = date.today().isoformat()
+                comps = ",".join([c for c, _ in COMP_CHOICES])
+                _schedule_start_job("daily_scheduled", run_daily_pipeline, (d, comps, "0.6", True))
+
+            # Esegui la pipeline giornaliera ogni giorno alle 04:00
+            scheduler.add_job(_scheduled_daily, CronTrigger(hour=4, minute=0), id="daily_pipeline")
+
+            # Controllo copertura fixture e fetch automatico (04:30)
+            scheduler.add_job(
+                _auto_fetch_fixtures_if_needed,
+                CronTrigger(hour=4, minute=30),
+                id="auto_fetch_fixtures",
+                replace_existing=True,
+            )
+
+            # Scarica risultati ogni 30 minuti
+            scheduler.add_job(
+                _schedule_start_job,
+                IntervalTrigger(minutes=30),
+                id="results_fetcher",
+                args=("fetch_results", run_results_fetcher, ()),
+            )
+
+            # Rigenera previsioni ogni ora
+            scheduler.add_job(
+                _schedule_start_job,
+                IntervalTrigger(hours=1),
+                id="predict_hourly",
+                args=("predict_hourly", run_predict_only, ()),
+            )
+
+            scheduler.start()
+            atexit.register(lambda: scheduler.shutdown(wait=False))
+
+            # Avvia subito una run iniziale (al boot) per popolare dati se possibile
+            try:
+                logger.info("[SCHED] Avvio run iniziale scheduler...")
+                _scheduled_daily()
+            except Exception as e:
+                logger.error(f"[SCHED] Errore run iniziale: {e}")
+
+            logger.info("[SCHED] Scheduler avviato con job: daily, results_fetcher, predict_hourly")
+        except Exception as e:
+            logger.error(f"Scheduler non avviato: {e}", exc_info=True)
+    else:
+        logger.warning("APScheduler non installato; nessuno job automatico avviato.")
+
     APP.run(
-        host="127.0.0.1",
-        port=int(os.getenv("BET_DASH_PORT", "5000")),
+        host=host_to_use,
+        port=port_to_use,
         debug=False,
         threaded=True,
     )

@@ -35,6 +35,16 @@ except ImportError:
 
 # ---------------- CONFIG ----------------
 DEFAULT_API_TOKEN = "9f48528ff8d5482f8851ae808eaa9f13"
+# Heuristica squadre forti per evitare xG piatti quando mancano dati recenti
+STRONG_TEAMS = {
+    "SA": ["Inter", "Milan", "Juventus", "Napoli", "Roma", "Lazio", "Atalanta"],
+    "PL": ["Manchester City", "Arsenal", "Liverpool", "Chelsea", "Tottenham", "Manchester United", "Newcastle"],
+    "PD": ["Real Madrid", "Barcelona", "Atletico Madrid", "Sevilla"],
+    "BL1": ["Bayern", "Borussia Dortmund", "RB Leipzig", "Bayer Leverkusen"],
+    "FL1": ["Paris Saint-Germain", "Marseille", "Lyon", "Monaco"],
+    "DED": ["Ajax", "Feyenoord", "PSV"],
+    "PPL": ["Benfica", "Porto", "Sporting"],
+}
 COMP_MAP = {
     "SA": "Serie A",
     "PL": "Premier League",
@@ -68,10 +78,10 @@ FIX_COLS = [
 ]
 FEA_COLS = [
     "match_id",
-    "xG_for_5_home",
-    "xG_against_5_home",
-    "xG_for_5_away",
-    "xG_against_5_away",
+    "xg_for_home",
+    "xg_against_home",
+    "xg_for_away",
+    "xg_against_away",
     "rest_days_home",
     "rest_days_away",
     "injuries_key_home",
@@ -198,6 +208,11 @@ def _iso_date(d: datetime) -> str:
 _team_cache: Dict[Tuple[int, str, str, int], List[Dict]] = {}
 
 
+def _hash_noise(seed: str, scale: float = 0.05) -> float:
+    h = hash(seed)
+    return ((h % 13) - 6) / (20.0 / scale)
+
+
 def team_recent_matches(
     team_id: Optional[int], comp_code: str, up_to_date: str, n: int, delay: float
 ) -> List[Dict]:
@@ -253,6 +268,16 @@ def gf_ga_from_matches(
             ga.append(hg)
         last_date = m.get("utcDate", last_date)
     return round(sum(gf) / len(gf), 3), round(sum(ga) / len(ga), 3), last_date
+
+
+def fallback_team_strength(team: str, comp_code: str) -> Tuple[float, float]:
+    """Heuristica: team forte → attacco alto, difesa migliore."""
+    strong = STRONG_TEAMS.get(comp_code, [])
+    name = (team or "").lower()
+    is_strong = any(s.lower() in name for s in strong)
+    if is_strong:
+        return 1.7, 1.0
+    return 1.25, 1.3
 
 
 # ---------------- POISSON ----------------
@@ -447,6 +472,19 @@ def main():
         gf_h, ga_h, last_h = gf_ga_from_matches(home_id, recent_home)
         gf_a, ga_a, last_a = gf_ga_from_matches(away_id, recent_away)
 
+        # Se l'API non ha restituito match recenti → applica fallback basato sulla forza della squadra
+        if not recent_home or (gf_h == 1.2 and ga_h == 1.2):
+            gf_h, ga_h = fallback_team_strength(home, comp_code)
+        if not recent_away or (gf_a == 1.2 and ga_a == 1.2):
+            gf_a, ga_a = fallback_team_strength(away, comp_code)
+
+        # Piccolo rumore deterministico per rompere simmetrie 1-1
+        noise = _hash_noise(match_id)
+        gf_h = max(0.3, gf_h * (1 + noise))
+        ga_h = max(0.3, ga_h * (1 - noise))
+        gf_a = max(0.3, gf_a * (1 - noise))
+        ga_a = max(0.3, ga_a * (1 + noise))
+
         def rest_days(last_iso: str):
             if not last_iso:
                 return ""
@@ -460,14 +498,27 @@ def main():
 
         rest_h, rest_a = rest_days(last_h), rest_days(last_a)
 
-        avg_goals, hadv = comp_stats.get(comp_code, (2.5, 1.05))
-        base = max(1e-6, avg_goals / 2.0)
-        lam_home_raw = (gf_h * ga_a) ** 0.5 if gf_h > 0 and ga_a > 0 else 1.0
-        lam_away_raw = (gf_a * ga_h) ** 0.5 if gf_a > 0 and ga_h > 0 else 1.0
-        lam_home = (lam_home_raw / 1.2) * base * hadv
-        lam_away = (lam_away_raw / 1.2) * base
+        # Usa la logica Poisson contestualizzata (fatica, meteo, ecc.) già usata nel frontend xG
+        from predictions_generator import expected_goals_to_prob
 
-        p1, px, p2, pover, punder = poisson_match_probs(lam_home, lam_away, max_goals=6)
+        p1, px, p2, lam_home, lam_away, top_score, p_over25 = expected_goals_to_prob(
+            xg_for_home=gf_h,
+            xg_against_home=ga_h,
+            xg_for_away=gf_a,
+            xg_against_away=ga_a,
+            rest_home=rest_h,
+            rest_away=rest_a,
+            inj_home=None,
+            inj_away=None,
+            travel_km_away=None,
+            derby_flag=0,
+            europe_home=1 if comp_code in ("CL", "EL", "EC") else 0,
+            europe_away=1 if comp_code in ("CL", "EL", "EC") else 0,
+            meteo_flag=0,
+            seed=match_id,
+            strong_home=None,
+            strong_away=None,
+        )
 
         def _ou_prob(line: float, max_goals: int = 10):
             over = 0.0
@@ -480,8 +531,10 @@ def main():
             under = 1.0 - over
             return round(over, 4), round(under, 4)
 
+        pover, punder = _ou_prob(2.5)
+
         ou2_over, ou2_under = _ou_prob(2.0)
-        ou25_over, ou25_under = _ou_prob(2.5)
+        ou25_over, ou25_under = round(p_over25, 4), round(1 - p_over25, 4)
         ou3_over, ou3_under = _ou_prob(3.0)
 
         from math import exp
@@ -535,10 +588,10 @@ def main():
         features_rows.append(
             {
                 "match_id": match_id,
-                "xG_for_5_home": gf_h,
-                "xG_against_5_home": ga_h,
-                "xG_for_5_away": gf_a,
-                "xG_against_5_away": ga_a,
+                "xg_for_home": gf_h,
+                "xg_against_home": ga_h,
+                "xg_for_away": gf_a,
+                "xg_against_away": ga_a,
                 "rest_days_home": rest_h,
                 "rest_days_away": rest_a,
                 "injuries_key_home": "",

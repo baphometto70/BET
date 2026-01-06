@@ -126,10 +126,10 @@ SEED_UNDERSTAT_NAME_MAP = {
 }
 
 FEA_COLS = [
-    "xG_for_5_home",
-    "xG_against_5_home",
-    "xG_for_5_away",
-    "xG_against_5_away",
+    "xg_for_home",
+    "xg_against_home",
+    "xg_for_away",
+    "xg_against_away",
     "rest_days_home",
     "rest_days_away",
     "derby_flag",
@@ -191,22 +191,47 @@ def _cache_path(team: str, date_iso: str) -> Path:
 
 
 def _extract_json_from_understat(html: str, varname: str) -> Optional[list]:
-    m = re.search(
-        rf"var\s+{re.escape(varname)}\s*=\s*JSON\.parse\('(.+?)'\)", html, flags=re.S
+    """
+    Estrae un oggetto JSON da una variabile JavaScript all'interno di un tag <script> nel codice HTML.
+    È progettato per essere robusto a cambiamenti minori nel formato della pagina.
+    """
+    # Cerca il tag <script> che contiene la variabile per restringere la ricerca
+    script_tag_pattern = re.compile(rf"<script>.*?\b{re.escape(varname)}\b.*?</script>", re.DOTALL)
+    match = script_tag_pattern.search(html)
+    
+    if not match:
+        return None
+        
+    script_content = match.group(0)
+
+    # Cerca il pattern di assegnazione della variabile.
+    data_pattern = re.search(
+        rf"\b{re.escape(varname)}\s*=\s*(?:JSON\.parse\(\s*'((?:\\.|[^'])*)'\s*\)|(\[.*?\]|\{{.*?\}}))\s*;?",
+        script_content,
+        re.DOTALL
     )
-    if m:
-        js_escaped = m.group(1)
+
+    if not data_pattern:
+        return None
+
+    escaped_json_str = data_pattern.group(1)
+    literal_json_str = data_pattern.group(2)
+
+    json_to_parse = None
+    if escaped_json_str:
         try:
-            js_unescaped = js_escaped.encode("utf-8").decode("unicode_escape")
-            return json.loads(js_unescaped)
+            json_to_parse = bytes(escaped_json_str, "utf-8").decode("unicode_escape")
         except Exception:
             return None
-    m2 = re.search(rf"var\s+{re.escape(varname)}\s*=\s*(\[[^\]]+\])", html, flags=re.S)
-    if m2:
+    elif literal_json_str:
+        json_to_parse = literal_json_str
+
+    if json_to_parse:
         try:
-            return json.loads(m2.group(1))
-        except Exception:
+            return json.loads(json_to_parse)
+        except json.JSONDecodeError:
             return None
+            
     return None
 
 
@@ -379,8 +404,20 @@ def compute_xg_and_rest(
     rows = rows[: max(1, n)]
     if not rows:
         return (1.2, 1.2, last_dt)
-    xg_avg = sum(r[1] for r in rows) / len(rows)
-    xga_avg = sum(r[2] for r in rows) / len(rows)
+
+    # Calcola una media pesata: le partite più recenti hanno più peso.
+    # Questo crea una feature di "forma" più reattiva per il training.
+    weights = list(range(len(rows), 0, -1))
+    total_weight = sum(weights)
+
+    if total_weight > 0:
+        xg_avg = sum(r[1] * w for r, w in zip(rows, weights)) / total_weight
+        xga_avg = sum(r[2] * w for r, w in zip(rows, weights)) / total_weight
+    else:
+        # Fallback a media semplice
+        xg_avg = sum(r[1] for r in rows) / len(rows)
+        xga_avg = sum(r[2] for r in rows) / len(rows)
+
     return (round(xg_avg, 3), round(xga_avg, 3), last_dt)
 
 
@@ -629,10 +666,10 @@ def build_historical(
         features_rows.append(
             {
                 "match_id": r["match_id"],
-                "xG_for_5_home": hxg_f,
-                "xG_against_5_home": hxg_a,
-                "xG_for_5_away": axg_f,
-                "xG_against_5_away": axg_a,
+                "xg_for_home": hxg_f,
+                "xg_against_home": hxg_a,
+                "xg_for_away": axg_f,
+                "xg_against_away": axg_a,
                 "rest_days_home": rest_h,
                 "rest_days_away": rest_a,
                 "derby_flag": "0",
@@ -661,10 +698,10 @@ def build_historical(
         "odds_1",
         "odds_x",
         "odds_2",
-        "xG_for_5_home",
-        "xG_against_5_home",
-        "xG_for_5_away",
-        "xG_against_5_away",
+        "xg_for_home",
+        "xg_against_home",
+        "xg_for_away",
+        "xg_against_away",
         "rest_days_home",
         "rest_days_away",
         "derby_flag",

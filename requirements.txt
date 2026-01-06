@@ -9,3 +9,9 @@ rapidfuzz
 beautifulsoup4
 lxml
 matplotlib
+unidecode
+sqlalchemy
+psycopg2-binary
+tomli
+
+APScheduler

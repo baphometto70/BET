@@ -1,205 +1,626 @@
-{% extends "base.html" %}
-{% block content %}
-
-<div class="tabs">
-  <div class="tab {% if active_tab=='daily' %}active{% endif %}" onclick="showTab('daily')">Daily</div>
-  <div class="tab {% if active_tab=='history' %}active{% endif %}" onclick="showTab('history')">History & Train</div>
-  <div class="tab {% if active_tab=='predict' %}active{% endif %}" onclick="showTab('predict')">Predict & Reports</div>
-  <div class="tab {% if active_tab=='settings' %}active{% endif %}" onclick="showTab('settings')">Settings & Logs</div>
-</div>
-
-<!-- STATO GLOBALE -->
-<div class="card" style="margin-top:6px; display:flex; align-items:center; gap:10px;">
-  <div id="job-dot" style="width:10px;height:10px;border-radius:50%;background:#10b981;"></div>
-  <div>
-    <strong>Stato:</strong> <span id="job-state">Idle</span>
-    <span class="muted">— si aggiorna automaticamente.</span>
-  </div>
-</div>
-
-<!-- DAILY -->
-<div id="panel-daily" class="panel" style="display:{% if active_tab=='daily' %}block{% else %}none{% endif %}">
-  <form action="{{ url_for('daily') }}" method="post">
-    <div class="row">
-      <div class="col">
-        <label>Data</label>
-        <input type="date" name="date" value="{{ state.today }}">
-        <label>Campionati</label>
-        <div class="badges">
-          {% for code,name in comp_choices %}
-          <label><input type="checkbox" name="comps" value="{{ code }}" {% if code in ['SA','PL','PD','BL1'] %}checked{% endif %}> {{ code }} — {{ name }}</label>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="col">
-        <label>Delay scraping (sec)</label>
-        <input type="text" name="delay" value="0.6">
-        <label><input type="checkbox" name="do_predict" checked> Esegui anche predizione</label>
-        <div style="margin-top:12px">
-          <button class="btn action-btn" type="submit">Avvia pipeline del giorno</button>
-        </div>
-        <div class="muted" style="margin-top:6px">Esegue: fixtures → odds → features → (predict)</div>
-      </div>
-    </div>
-  </form>
-  <div class="card" style="margin-top:16px">
-    <h3>Log in tempo reale</h3>
-    <div class="muted">Si aggiornano automaticamente ogni 2s.</div>
-    <textarea id="logbox-daily" readonly placeholder="In attesa di log…"></textarea>
-    <div style="margin-top:6px">
-      <a class="btn secondary" href="{{ url_for('download', fname='logs/current.log') }}" target="_blank">Apri log in nuova scheda</a>
-    </div>
-  </div>
-</div>
-
-<!-- HISTORY & TRAIN -->
-<div id="panel-history" class="panel" style="display:{% if active_tab=='history' %}block{% else %}none{% endif %}">
-  <div class="row">
-    <div class="col">
-      <div class="card">
-        <h3>Costruisci storico</h3>
-        <form action="{{ url_for('history') }}" method="post">
-          <label>Da</label><input type="date" name="from" value="2023-07-01">
-          <label>A</label><input type="date" name="to" value="{{ state.today }}">
-          <label>Campionati</label>
-          <div class="badges">
-            {% for code,name in comp_choices %}
-            <label><input type="checkbox" name="comps_hist" value="{{ code }}" {% if code in ['SA','PL','PD','BL1'] %}checked{% endif %}> {{ code }} — {{ name }}</label>
-            {% endfor %}
-          </div>
-          <label>Ultime N (xG)</label><input type="text" name="n_recent_hist" value="5">
-          <label>Delay scraping</label><input type="text" name="delay_hist" value="0.6">
-          <div style="margin-top:10px"><button class="btn action-btn" type="submit">Genera storico</button></div>
-          <div class="muted" style="margin-top:6px">Output: data/historical_dataset.csv — Presente: {{ '✅' if state.has_hist else '❌' }}</div>
-        </form>
-      </div>
-    </div>
-    <div class="col">
-      <div class="card">
-        <h3>Training</h3>
-        <form action="{{ url_for('train') }}" method="post">
-          <label>Modalità</label>
-          <select name="train_mode">
-            <option value="real" {% if state.has_hist %}selected{% endif %}>Reale (usa historical_dataset.csv)</option>
-            <option value="dummy" {% if not state.has_hist %}selected{% endif %}>Dummy (test rapido)</option>
-          </select>
-          <div style="margin-top:10px"><button class="btn action-btn" type="submit">Avvia training</button></div>
-          <div class="muted" style="margin-top:6px">Modello presente: {{ '✅' if state.has_model else '❌' }}</div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h3>Log in tempo reale</h3>
-    <div class="muted">Si aggiornano automaticamente ogni 2s.</div>
-    <textarea id="logbox-history" readonly placeholder="In attesa di log…"></textarea>
-    <div style="margin-top:6px">
-      <a class="btn secondary" href="{{ url_for('download', fname='logs/current.log') }}" target="_blank">Apri log in nuova scheda</a>
-    </div>
-  </div>
-</div>
-
-<!-- PREDICT & REPORTS -->
-<div id="panel-predict" class="panel" style="display:{% if active_tab=='predict' %}block{% else %}none{% endif %}">
-  <div class="row">
-    <div class="col">
-      <div class="card">
-        <h3>Predizione & Report</h3>
-        <form action="{{ url_for('predict') }}" method="post">
-          <div class="muted">Usa fixtures.csv + features.csv correnti.</div>
-          <div style="margin-top:10px">
-            <button class="btn action-btn" type="submit">Esegui predizione</button>
-            <a class="btn secondary" href="{{ url_for('download', fname='report.html') }}">Apri report</a>
-            <a class="btn secondary" href="{{ url_for('download', fname='predictions.csv') }}">Scarica predictions.csv</a>
-          </div>
-          <div class="muted" style="margin-top:6px">
-            Report: {{ '✅' if state.has_report else '❌' }} — Predictions: {{ '✅' if state.has_preds else '❌' }}
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h3>Log in tempo reale</h3>
-    <div class="muted">Si aggiornano automaticamente ogni 2s.</div>
-    <textarea id="logbox-predict" readonly placeholder="In attesa di log…"></textarea>
-    <div style="margin-top:6px">
-      <a class="btn secondary" href="{{ url_for('download', fname='logs/current.log') }}" target="_blank">Apri log in nuova scheda</a>
-    </div>
-  </div>
-</div>
-
-<!-- SETTINGS & LOGS -->
-<div id="panel-settings" class="panel" style="display:{% if active_tab=='settings' %}block{% else %}none{% endif %}">
-  <div class="card">
-    <h3>Note & Log</h3>
-    <textarea id="logbox-settings" readonly placeholder="I log compariranno qui dopo l’esecuzione di un’azione."></textarea>
-    <div style="margin-top:6px">
-      <a class="btn secondary" href="{{ url_for('download', fname='logs/current.log') }}" target="_blank">Apri log in nuova scheda</a>
-    </div>
-  </div>
-</div>
-
-<script>
-function showTab(name){
-  const panels = ["daily","history","predict","settings"];
-  panels.forEach(p=>{
-    document.getElementById("panel-"+p).style.display = (p===name) ? "block":"none";
-  });
-  const tabs = document.querySelectorAll(".tab");
-  tabs.forEach(t=>t.classList.remove("active"));
-  const idx = panels.indexOf(name);
-  document.getElementsByClassName("tab")[idx].classList.add("active");
-}
-
-/* --- LIVE LOG (polling ogni 2s) + SEMAFORO stato --- */
-const LOG_URL = "{{ url_for('download', fname='logs/current.log') }}";
-let lastLog = "";
-
-function setState(running){
-  const dot = document.getElementById('job-dot');
-  const st  = document.getElementById('job-state');
-  const btns = document.querySelectorAll('.action-btn');
-  if(running){
-    dot.style.background = '#ef4444'; // rosso
-    st.textContent = 'In esecuzione';
-    btns.forEach(b => { b.disabled = true; b.style.opacity = 0.6; });
-  }else{
-    dot.style.background = '#10b981'; // verde
-    st.textContent = 'Idle';
-    btns.forEach(b => { b.disabled = false; b.style.opacity = 1; });
-  }
-}
-
-function updateLog(id){
-  const box = document.getElementById(id);
-  if (!box) return;
-  fetch(LOG_URL, {cache:'no-store'})
-    .then(r => r.ok ? r.text() : "")
-    .then(t => {
-      if (t !== "" && box.value !== t) {
-        box.value = t;
-        box.scrollTop = box.scrollHeight;
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BET Dashboard</title>
+    <style>
+      :root {
+        --bg-color: #fcfcfc; /* Softer white */
+        --panel-bg-color: #ffffff;
+        --text-color: #333333;
+        --header-color: #1a1a1a;
+        --subtle-text-color: #777777; /* Slightly darker for better contrast */
+        --border-color: #e8e8e8; /* Lighter, more subtle border */
+        --accent-color: #5a7d9a; /* Muted, elegant blue-grey */
+        --accent-color-hover: #4a6a80; /* Darker hover */
+        --status-idle-color: #4CAF50; /* Calm green */
+        --status-running-color: #FFC107; /* Soft amber */
+        --danger-color: #EF5350; /* Muted red */
+        --shadow-color: rgba(0, 0, 0, 0.03); /* Lighter shadow */
       }
-      // Semaforo: se nel log esiste START senza END => running
-      const hasStart = t.includes('[START]');
-      const hasEnd   = t.includes('[END]');
-      setState(hasStart && !hasEnd);
-      lastLog = t;
-    })
-    .catch(()=>{ /* ignora errori transitori */ });
-}
 
-function tick(){
-  updateLog('logbox-daily');
-  updateLog('logbox-history');
-  updateLog('logbox-predict');
-  updateLog('logbox-settings');
-}
-setInterval(tick, 2000);
-tick();
-</script>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
 
-{% endblock %}
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji",
+          "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        margin: 0;
+        padding: 2.5rem; /* More padding */
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 1.5rem; /* More padding */
+        margin-bottom: 2.5rem; /* More margin */
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      header h1 {
+        margin: 0;
+        color: var(--header-color);
+        font-size: 2rem; /* Slightly larger */
+        font-weight: 500; /* Lighter weight for elegance */
+      }
+
+      .status-indicator {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap; /* Allow button to wrap on small screens */
+        gap: 0.75rem;
+        font-weight: 400; /* Lighter weight */
+        color: var(--subtle-text-color);
+      }
+
+      .status-indicator::before {
+        content: "";
+        display: block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: var(--status-idle-color);
+        transition: background-color 0.3s;
+      }
+
+      .status-indicator.running::before {
+        background-color: var(--status-running-color);
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.2); opacity: 0.7; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+
+      .panel {
+        background-color: var(--panel-bg-color);
+        border: 1px solid var(--border-color);
+        border-radius: 6px; /* Softer corners */
+        margin-bottom: 2.5rem; /* More margin */
+        box-shadow: 0 2px 8px var(--shadow-color); /* Softer shadow */
+        overflow: hidden;
+      }
+
+      .panel-header { /* Adjusted padding */
+        padding: 1.2rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .panel-header h2 {
+        margin: 0;
+        font-size: 1.1rem; /* Slightly smaller, more refined */
+        font-weight: 500;
+      }
+
+      .panel-content {
+        padding: 1.5rem;
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 1.2rem; /* Slightly less gap */
+      }
+
+      fieldset {
+        border: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem; /* Slightly less gap */
+      }
+
+      label {
+        font-weight: 500;
+        display: block; /* Less margin */
+        margin-bottom: 0.3rem;
+      }
+
+      input[type="date"],
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        padding: 0.7rem; /* Slightly less padding */
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background-color: var(--bg-color);
+        font-size: 0.95rem; /* Slightly smaller font */
+      }
+
+      .checkbox-group {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+      }
+
+      .checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      button[type="submit"] {
+        background-color: var(--accent-color);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.2rem; /* Adjusted padding */
+        border-radius: 4px;
+        font-weight: 500; /* Lighter weight */
+        cursor: pointer;
+        align-self: flex-start;
+        transition: background-color 0.2s, box-shadow 0.2s; /* Add shadow transition */
+      }
+
+      button[type="submit"]:hover {
+        background-color: var(--accent-color-hover);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* Subtle hover shadow */
+      }
+
+      button[type="submit"]:disabled {
+        background-color: #e0e0e0; /* Lighter disabled color */
+        color: #a0a0a0; /* Muted text color */
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      #stop-job-btn {
+        background-color: var(--danger-color);
+        color: white;
+        border: none;
+        padding: 0.4rem 0.8rem;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        margin-left: 1rem;
+        transition: background-color 0.2s;
+      }
+      #stop-job-btn:hover {
+        background-color: #c0392b; /* Darker red */
+      }
+      #stop-job-btn:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+
+      .results-links a {
+        display: inline-block;
+        margin-right: 1.5rem;
+        text-decoration: none;
+        color: var(--accent-color);
+        font-weight: 500; /* Lighter weight */
+      }
+      .results-links a:hover {
+        text-decoration: underline;
+      }
+
+      details.panel { padding: 0; }
+      summary {
+        padding: 1.2rem 1.5rem; /* Adjusted padding */
+        font-weight: 500;
+        cursor: pointer;
+        list-style: none;
+        outline: none;
+      }
+      summary::-webkit-details-marker { display: none; }
+      summary h2 { display: inline; font-size: 1.1rem; }
+      details[open] > summary { border-bottom: 1px solid var(--border-color); }
+
+      .maintenance-forms {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.2rem;
+        padding: 1.5rem;
+      }
+
+      pre#log-viewer { /* Darker, more professional code background */
+        background-color: #282c34;
+        color: #abb2bf; /* Lighter text for contrast */
+        border: 1px solid #3a3f4b; /* Darker border */
+        padding: 1.2rem; /* More padding */
+        border-radius: 4px;
+        white-space: pre-wrap;
+        word-break: break-all;
+        max-height: 400px; /* Slightly less height */
+        overflow-y: auto;
+        font-family: "Menlo", "Monaco", "Consolas", "Courier New", monospace;
+        font-size: 0.85rem; /* Slightly smaller font */
+      }
+
+      .flash-messages {
+        padding: 0.8rem 1.2rem; /* Adjusted padding */
+        margin-bottom: 1.5rem; /* More margin */
+        border-radius: 6px;
+        background-color: #eef7ff; /* Lighter info blue */
+        color: #2a6496; /* Darker info text */
+        border: 1px solid #cce5ff; /* Lighter info border */
+      }
+
+      .flash.success {
+        background-color: #dff0d8; /* Lighter success green */
+        color: #3c763d; /* Darker success text */
+        border-color: #d6e9c6; /* Lighter success border */
+      }
+
+      .flash.error {
+        background-color: #f2dede; /* Lighter error red */
+        color: #a94442; /* Darker error text */
+        border-color: #ebccd1; /* Lighter error border */
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>BET Dashboard</h1>
+        <div class="status-indicator {% if state.job_running %}running{% endif %}">
+          <span id="status-text">
+            {% if state.job_running %} Job '{{ state.job_name }}' in
+            esecuzione... {% else %} Pronto {% endif %}
+          </span>
+          <button id="stop-job-btn" style="display: none;">Interrompi Job</button>
+        </div>
+      </header>
+
+      <!-- Quick Links -->
+      <div style="display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap;">
+        <a href="/data" style="padding: 8px 16px; background: #667eea; color: white; text-decoration: none; border-radius: 4px; font-size: 14px; font-weight: 600;">📊 Dati Partite</a>
+        <a href="/predictions-xg" style="padding: 8px 16px; background: #667eea; color: white; text-decoration: none; border-radius: 4px; font-size: 14px; font-weight: 600;">📈 Analisi xG</a>
+        <a href="/proposta" style="padding: 8px 16px; background: #667eea; color: white; text-decoration: none; border-radius: 4px; font-size: 14px; font-weight: 600;">🎯 Proposta Calcolata</a>
+        <a href="/extended-markets" style="padding: 8px 16px; background: #f39c12; color: white; text-decoration: none; border-radius: 4px; font-size: 14px; font-weight: 600;">🔥 Mercati Estesi (NUOVO!)</a>
+        <a href="/esiti" style="padding: 8px 16px; background: #667eea; color: white; text-decoration: none; border-radius: 4px; font-size: 14px; font-weight: 600;">📋 Esiti Partite</a>
+      </div>
+
+      {% with messages = get_flashed_messages() %} {% if messages %}
+      <div class="flash-messages">
+        {% for message in messages %}
+        <div class="flash">{{ message }}</div>
+        {% endfor %}
+      </div>
+      {% endif %} {% endwith %}
+
+      <main>
+        <div class="panel">
+          <div class="panel-header"><h2>Azione Giornaliera</h2></div>
+          <div class="panel-content">
+            <form action="{{ url_for('daily') }}" method="post">
+              <fieldset>
+                <label for="date">Data</label>
+                <input type="date" id="date" name="date" value="{{ state.today }}" />
+              </fieldset>
+              <fieldset>
+                <label>Competizioni</label>
+                <div class="checkbox-group">
+                  {% for val, name in comp_choices %}
+                  <div class="checkbox-item">
+                    <input type="checkbox" name="comps" id="comp_{{ val }}" value="{{ val }}" {% if val in ['SA', 'PL', 'PD', 'BL1'] %}checked{% endif %}/>
+                    <label for="comp_{{ val }}">{{ name }}</label>
+                  </div>
+                  {% endfor %}
+                </div>
+              </fieldset>
+              <fieldset>
+                <div class="checkbox-item">
+                  <input type="checkbox" name="do_predict" id="do_predict" checked />
+                  <label for="do_predict">Genera previsioni</label>
+                </div>
+              </fieldset>
+              <button type="submit">Avvia Pipeline</button>
+            </form>
+          </div>
+        </div>
+
+        <details class="panel">
+          <summary><h2>Utility & Manutenzione Dati</h2></summary>
+          <div class="panel-content">
+            
+            {# Stato Copertura Quote #}
+            <div style="margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-color);">
+                <h3 style="font-size: 1rem; font-weight: 500; margin-top: 0;">Stato Copertura Quote</h3>
+                {% if state.odds_coverage %}
+                    <div class="flash-messages" style="margin-bottom: 1rem;">
+                        {# Usa classi 'success' o 'error' per lo stile #}
+                        <div class="flash {% if state.odds_coverage.warning %}error{% else %}success{% endif %}">
+                            {{ state.odds_coverage.message }}
+                        </div>
+                    </div>
+                {% endif %}
+                <form method="POST" action="{{ url_for('odds_bulk_fetch') }}" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                    <fieldset style="flex-direction: row; align-items: center; gap: 0.5rem;">
+                        <label for="bulk_days">Giorni futuri da coprire:</label>
+                        <input type="number" id="bulk_days" name="bulk_days" value="30" min="1" max="90" style="width: 80px; padding: 0.5rem;">
+                    </fieldset>
+                    <button type="submit" {% if state.job_running %}disabled{% endif %}>Avvia Bulk Fetch Quote</button>
+                </form>
+            </div>
+    
+            {# Altri Job Manuali #}
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+                <div>
+                    <h3 style="font-size: 1rem; font-weight: 500; margin-top: 0;">Aggiorna Risultati</h3>
+                    <p style="font-size: 0.9rem; color: var(--subtle-text-color); margin-bottom: 1rem;">Scarica i risultati finali delle partite recenti per popolare gli esiti e calcolare le performance.</p>
+                    <form method="POST" action="{{ url_for('fetch_results') }}">
+                        <button type="submit" {% if state.job_running %}disabled{% endif %}>Avvia Fetch Risultati</button>
+                    </form>
+                </div>
+                <div>
+                    <h3 style="font-size: 1rem; font-weight: 500; margin-top: 0;">Costruisci Mapping Squadre</h3>
+                    <p style="font-size: 0.9rem; color: var(--subtle-text-color); margin-bottom: 1rem;">Allinea i nomi delle squadre tra le varie fonti dati (es. DB vs Understat) per migliorare il matching.</p>
+                    <form method="POST" action="{{ url_for('build_maps') }}">
+                        <button type="submit" {% if state.job_running %}disabled{% endif %}>Avvia Build Mappings</button>
+                    </form>
+                </div>
+            </div>
+    
+          </div>
+        </details>
+
+        <div class="panel">
+          <div class="panel-header"><h2>Risultati</h2></div>
+          <div class="panel-content results-links">
+            {% if state.has_report %}
+            <a href="{{ url_for('download', fname='report.html') }}" target="_blank">Visualizza Report HTML</a>
+            {% else %}<span>Report non disponibile.</span>{% endif %} {% if state.has_preds %}
+            <a href="{{ url_for('download', fname='predictions.csv') }}" target="_blank">Scarica Previsioni CSV</a>
+            {% else %}<span>CSV non disponibile.</span>{% endif %}
+          </div>
+        </div>
+
+        <details class="panel" {% if active_tab in ['history', 'train'] %}open{% endif %}>
+          <summary><h2>Setup & Manutenzione</h2></summary>
+          <div class="maintenance-forms">
+            <form action="{{ url_for('history') }}" method="post">
+              <h3>Costruisci Storico</h3>
+              <fieldset>
+                <label for="from">Da</label>
+                <input type="date" id="from" name="from" value="2023-07-01" />
+              </fieldset>
+              <fieldset>
+                <label for="to">A</label>
+                <input type="date" id="to" name="to" value="{{ state.today }}" />
+              </fieldset>
+              <fieldset>
+                <label>Competizioni</label>
+                <div class="checkbox-group">
+                  {% for val, name in comp_choices %}
+                  <div class="checkbox-item">
+                    <input type="checkbox" name="comps_hist" id="comp_hist_{{ val }}" value="{{ val }}" {% if val in ['SA', 'PL', 'PD', 'BL1'] %}checked{% endif %}/>
+                    <label for="comp_hist_{{ val }}">{{ name }}</label>
+                  </div>
+                  {% endfor %}
+                </div>
+              </fieldset>
+              <button type="submit">Avvia Creazione Storico</button>
+            </form>
+
+            <form action="{{ url_for('train') }}" method="post">
+              <h3>Addestra Modello</h3>
+              <fieldset>
+                <div class="checkbox-item">
+                    <input type="radio" id="train_real" name="train_mode" value="real" checked>
+                    <label for="train_real">Training Reale</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="radio" id="train_dummy" name="train_mode" value="dummy">
+                    <label for="train_dummy">Training Dummy</label>
+                </div>
+              </fieldset>
+              <button type="submit">Avvia Training</button>
+            </form>
+          </div>
+        </details>
+
+        <details class="panel" {% if state.job_running %}open{% endif %}>
+          <summary><h2>Log Corrente</h2></summary>
+          <div class="panel-content">
+            <pre id="log-viewer">{{ last_log }}</pre>
+          </div>
+        </details>
+      </main>
+    </div>
+
+    <script>
+      // Script per polling dello stato e dei log
+      document.addEventListener("DOMContentLoaded", function () {
+        console.log("DOM Content Loaded.");
+        const isJobRunningInitial = {{ state.job_running|tojson }};
+        const initialLastMessage = {{ state.last_message|tojson }};
+        const logViewer = document.getElementById("log-viewer");
+        const statusIndicator = document.querySelector(".status-indicator");
+        const statusText = document.getElementById("status-text");
+        const stopJobBtn = document.getElementById("stop-job-btn");
+        const flashMessagesContainer = document.querySelector(".flash-messages");
+        const allFormInputs = document.querySelectorAll("form input, form select, form textarea, form button[type='submit']");
+        const forms = document.querySelectorAll("form"); // Get all forms
+        console.log("Forms found:", forms.length);
+
+        let pollingInterval;
+        let lastLogContent = ""; // To track log content changes
+
+        function toggleFormInputs(disable) {
+          allFormInputs.forEach((input) => {
+            if (input.type === "submit") {
+              input.disabled = disable;
+              input.style.cursor = disable ? "not-allowed" : "pointer";
+            } else {
+              input.disabled = disable;
+            }
+          });
+        }
+
+        function clearDynamicFlashMessages() {
+            // Remove all dynamically added flash messages
+            if (flashMessagesContainer) {
+              Array.from(flashMessagesContainer.children).forEach(child => {
+                if (child.classList.contains('flash')) child.remove();
+              });
+            }
+        }
+
+        function showDynamicFlashMessage(message, type = "info") {
+          const div = document.createElement("div");
+          div.className = `flash ${type}`;
+          div.textContent = message;
+          clearDynamicFlashMessages(); // Clear previous dynamic messages
+          if (flashMessagesContainer) flashMessagesContainer.appendChild(div);
+          // Rimuovi il messaggio dopo un po', ma non se la pagina sta per ricaricarsi
+          setTimeout(() => {
+              if (div.parentNode && div.textContent === message) { // Only remove if it's still the same message
+                  div.remove();
+              }
+          }, 7000); // Increased visibility time
+        }
+
+        function updateLog() {
+          fetch("{{ url_for('log_tail') }}")
+            .then(response => { if (!response.ok) throw new Error('Network response was not ok.'); return response.text(); })
+            .then(data => {
+              if (logViewer.textContent !== data) {
+                const isScrolledToBottom = logViewer.scrollHeight - logViewer.clientHeight <= logViewer.scrollTop + 20; // Increased buffer
+                logViewer.textContent = data;
+                if (isScrolledToBottom) {
+                    logViewer.scrollTop = logViewer.scrollHeight; // Scorri in fondo solo se l'utente era già in fondo
+                }
+                lastLogContent = data; // Update last known log content
+              }
+            })
+            .catch(error => console.error("Errore nel recupero dei log:", error)); // Log network errors
+        }
+
+        function checkJobStatus() {
+          fetch("{{ url_for('job_status') }}")
+            .then(response => { if (!response.ok) throw new Error('Network response was not ok.'); return response.json(); })
+            .then(data => {
+              if (data.job_running) {
+                statusIndicator.classList.add("running");
+                statusText.innerHTML = `Job '${data.job_name}' in esecuzione...`;
+                stopJobBtn.style.display = 'inline-block';
+                stopJobBtn.disabled = false;
+                stopJobBtn.textContent = 'Interrompi Job';
+                updateLog(); // Continua ad aggiornare i log
+              } else {
+                // Il job è terminato
+                clearInterval(pollingInterval);
+                statusIndicator.classList.remove("running");
+                statusText.innerHTML = `Pronto`;
+                stopJobBtn.style.display = 'none';
+                toggleFormInputs(false); // Re-enable all form inputs
+                
+                // Mostra il messaggio finale solo se è diverso da quello iniziale (per evitare flash su reload)
+                if (data.last_message && data.last_message !== initialLastMessage && !flashMessagesContainer.textContent.includes(data.last_message)) {
+                    const messageType = data.last_message.includes("fallito") || data.last_message.includes("interrotto") ? "error" : "success";
+                    showDynamicFlashMessage(data.last_message, messageType);
+                }
+                
+                // Ricarica la pagina per aggiornare i link ai report e lo stato
+                setTimeout(() => location.reload(), 2000); 
+              }
+            })
+            .catch(error => {
+              console.error("Errore nel recupero dello stato del job:", error);
+              clearInterval(pollingInterval); // Ferma il polling in caso di errore
+              statusIndicator.classList.remove("running");
+              statusText.innerHTML = `Errore di comunicazione.`;
+              stopJobBtn.style.display = 'none';
+              toggleFormInputs(false); // Re-enable all form inputs
+              showDynamicFlashMessage("Errore di comunicazione con il server. Riprova più tardi.", "error");
+            });
+        }
+
+        // Setup iniziale
+        if (isJobRunningInitial) {
+          toggleFormInputs(true); // Disable all form inputs
+          stopJobBtn.style.display = 'inline-block';
+          pollingInterval = setInterval(checkJobStatus, 2000); // Polla ogni 2 secondi
+          updateLog(); // Aggiornamento iniziale dei log
+        } else {
+          toggleFormInputs(false); // Ensure all form inputs are enabled if no job is running
+          stopJobBtn.style.display = 'none';
+        }
+
+        // Handle form submissions via Fetch API
+        try {
+            forms.forEach(form => {
+                form.addEventListener('submit', function(event) {
+                    console.log("Form submitted:", form.action);
+                    event.preventDefault(); // Prevent default form submission (page reload)
+
+                    const formData = new FormData(form);
+                    const actionUrl = form.action;
+
+                    toggleFormInputs(true); // Immediately disable inputs
+
+                    fetch(actionUrl, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok: ' + response.statusText);
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log("Fetch success, data:", data);
+                        if (data.status === "job_started") {
+                            showDynamicFlashMessage(`Job '${data.job_name}' avviato. Controlla i log.`, "info");
+                            pollingInterval = setInterval(checkJobStatus, 2000); // Start polling
+                            updateLog(); // Initial log update
+                        } else {
+                            // Handle job already running or other unexpected responses
+                            toggleFormInputs(false);
+                            showDynamicFlashMessage(data.message || "Errore inaspettato all'avvio del job.", "error");
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Errore durante l'invio del form:", error);
+                        toggleFormInputs(false);
+                        showDynamicFlashMessage("Errore di rete o del server. Riprova.", "error");
+                    });
+                });
+            });
+        } catch (e) {
+            console.error("Error attaching form submit listeners:", e);
+        }
+
+        // Handle stop job button click
+        stopJobBtn.addEventListener('click', function() {
+            stopJobBtn.disabled = true;
+            stopJobBtn.textContent = 'Interruzione...';
+            fetch("{{ url_for('stop_job') }}", { method: 'POST' })
+                .then(response => { if (!response.ok) throw new Error('Network response was not ok.'); return response.json(); })
+                .then(data => {
+                    if (data.status === 'stop_requested') {
+                        showDynamicFlashMessage('Richiesta di interruzione inviata.', 'info');
+                    } else {
+                        showDynamicFlashMessage('Nessun job da interrompere o job già terminato.', 'error');
+                        stopJobBtn.disabled = false; // Re-enable if no job was running
+                        stopJobBtn.textContent = 'Interrompi Job';
+                    }
+                })
+                .catch(error => {
+                    console.error('Errore richiesta interruzione:', error);
+                    showDynamicFlashMessage('Errore di rete durante la richiesta di interruzione.', 'error');
+                    stopJobBtn.disabled = false;
+                    stopJobBtn.textContent = 'Interrompi Job';
+                });
+        });
+      });
+    </script>
+  </body>
+</html>

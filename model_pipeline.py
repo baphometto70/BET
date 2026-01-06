@@ -38,9 +38,18 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.base import clone
 from sklearn.pipeline import Pipeline
 
+# Importazioni per il database
+from sqlalchemy.orm import joinedload
+from database import SessionLocal
+from models import Fixture, Feature, Odds
+from predictions_generator import expected_goals_to_prob
+
 try:
     from lightgbm import LGBMClassifier
-except ImportError:
+except (ImportError, OSError) as e:  # Catch OSError for library loading issues (e.g., libomp)
+    warnings.warn(
+        f"LightGBM non può essere importato ({e}). Verranno usati modelli di fallback. Per risolvere, su macOS esegui: brew install libomp"
+    )
     LGBMClassifier = None  # type: ignore
 
 # =========================
@@ -48,15 +57,12 @@ except ImportError:
 # =========================
 ROOT = Path(__file__).resolve().parent
 
-# Input/Output files
-FIX_PATH = ROOT / "fixtures.csv"
-FEA_PATH = ROOT / "features.csv"
 PRED_PATH = ROOT / "predictions.csv"
 REPORT_HTML = ROOT / "report.html"
 
-# Storici
-HIST_OU_PATH = ROOT / "data" / "historical_dataset.csv"
-HIST_1X2_PATH = ROOT / "data" / "historical_1x2.csv"
+# Storici - usa dataset enhanced con advanced features
+HIST_OU_PATH = ROOT / "data" / "historical_dataset_enhanced.csv"
+HIST_1X2_PATH = ROOT / "data" / "historical_1x2_enhanced.csv"
 
 # Modelli
 MODEL_DIR = ROOT / "models"
@@ -79,11 +85,80 @@ TARGET_1X2 = (
 )
 
 # Feature sets (puoi adattarle alle tue colonne)
+# NOTA: I nomi devono corrispondere ESATTAMENTE a quelli nel DB (models.py) e negli storici.
+
+# Advanced features (54 feature professionali da sistemi come FiveThirtyEight)
+FEATURES_ADVANCED: List[str] = [
+    # Recent Form Features (Home)
+    "home_form_xg_for",
+    "home_form_xg_against",
+    "home_form_xg_diff",
+    "home_form_wins",
+    "home_form_draws",
+    "home_form_losses",
+    "home_form_goals_for",
+    "home_form_goals_against",
+    "home_form_points",
+    "home_form_trend",
+    # Recent Form Features (Away)
+    "away_form_xg_for",
+    "away_form_xg_against",
+    "away_form_xg_diff",
+    "away_form_wins",
+    "away_form_draws",
+    "away_form_losses",
+    "away_form_goals_for",
+    "away_form_goals_against",
+    "away_form_points",
+    "away_form_trend",
+    # Head-to-Head Features
+    "h2h_home_wins",
+    "h2h_draws",
+    "h2h_away_wins",
+    "h2h_home_goals_avg",
+    "h2h_away_goals_avg",
+    "h2h_home_xg_avg",
+    "h2h_away_xg_avg",
+    "h2h_total_over25",
+    # League Standings Features (Home)
+    "home_position",
+    "home_points",
+    "home_goal_difference",
+    "home_pressure_top",
+    "home_pressure_relegation",
+    # League Standings Features (Away)
+    "away_position",
+    "away_points",
+    "away_goal_difference",
+    "away_pressure_top",
+    "away_pressure_relegation",
+    # Momentum Indicators (Home)
+    "home_winning_streak",
+    "home_unbeaten_streak",
+    "home_losing_streak",
+    "home_clean_sheet_streak",
+    "home_scoring_streak",
+    "home_xg_momentum",
+    # Momentum Indicators (Away)
+    "away_winning_streak",
+    "away_unbeaten_streak",
+    "away_losing_streak",
+    "away_clean_sheet_streak",
+    "away_scoring_streak",
+    "away_xg_momentum",
+    # Derived Features
+    "position_gap",
+    "points_gap",
+    "form_diff",
+    "momentum_diff",
+]
+
+# Base features (xG e context)
 FEATURES_BASE: List[str] = [
-    "xG_for_5_home",
-    "xG_against_5_home",
-    "xG_for_5_away",
-    "xG_against_5_away",
+    "xg_for_home",
+    "xg_against_home",
+    "xg_for_away",
+    "xg_against_away",
     "rest_days_home",
     "rest_days_away",
     "derby_flag",
@@ -93,7 +168,7 @@ FEATURES_BASE: List[str] = [
     "style_ppda_home",
     "style_ppda_away",
     "travel_km_away",
-]
+] + FEATURES_ADVANCED  # Aggiungi tutte le 54 advanced features
 
 FEATURES_OU: List[str] = FEATURES_BASE[:]  # per OU 2.5
 FEATURES_1X2: List[str] = FEATURES_BASE[:]  # per 1X2
@@ -101,6 +176,85 @@ FEATURES_1X2: List[str] = FEATURES_BASE[:]  # per 1X2
 # STRICT ML: non usare MAI quote per produrre probabilità
 STRICT_ML = True
 
+DEFAULT_XG_VALUE = 1.2 # Valore di default per xG quando non disponibili
+BLEND_HOME_EDGE_CAP = 0.35  # limite di quanto le quote possono spostare i lambda in fallback
+
+
+RENAME_MAP = {
+    "xG_for_5_home": "xg_for_home",
+    "xG_against_5_home": "xg_against_home",
+    "xG_for_5_away": "xg_for_away",
+    "xG_against_5_away": "xg_against_away",
+}
+
+
+def _standardize_cols(df: pd.DataFrame) -> pd.DataFrame:
+    """Uniforma i nomi delle colonne degli storici ai nomi attesi dal modello."""
+    rename = {k: v for k, v in RENAME_MAP.items() if k in df.columns}
+    if rename:
+        df = df.rename(columns=rename)
+    return df
+
+
+def _select_features(df: pd.DataFrame, cols: List[str], min_nonnull_ratio: float = 0.05) -> List[str]:
+    """Rimuove feature totalmente vuote o quasi (soglia di copertura)."""
+    out = []
+    for c in cols:
+        if c not in df.columns:
+            continue
+        ratio = df[c].notna().mean()
+        if ratio >= min_nonnull_ratio:
+            out.append(c)
+    return out
+
+
+def _hash_noise(seed: Optional[str]) -> float:
+    """Piccola variazione deterministica per evitare simmetrie perfette (range ~[-0.025, 0.025])."""
+    if not seed:
+        return 0.0
+    h = hash(seed)
+    return ((h % 11) - 5) / 200.0
+
+
+def _clamp(v: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, v))
+
+
+def _normalize_odds_probs(o1: Optional[float], ox: Optional[float], o2: Optional[float]) -> Optional[Tuple[float, float, float]]:
+    if o1 and ox and o2 and o1 > 1.0 and ox > 1.0 and o2 > 1.0:
+        p1 = 1.0 / o1
+        px = 1.0 / ox
+        p2 = 1.0 / o2
+        tot = p1 + px + p2
+        if tot > 0:
+            return p1 / tot, px / tot, p2 / tot
+    return None
+
+
+def _prob_from_lambda(lambda_home: float, lambda_away: float, max_goals: int = 8) -> Tuple[float, float, float]:
+    p1 = px = p2 = 0.0
+    for hg in range(max_goals + 1):
+        from math import exp, factorial
+        try:
+            ph = exp(-lambda_home) * (lambda_home ** hg) / factorial(hg)
+        except Exception:
+            ph = 0.0
+        for ag in range(max_goals + 1):
+            try:
+                pa = exp(-lambda_away) * (lambda_away ** ag) / factorial(ag)
+            except Exception:
+                pa = 0.0
+            prob = ph * pa
+            if hg > ag:
+                p1 += prob
+            elif hg == ag:
+                px += prob
+            else:
+                p2 += prob
+    tot = p1 + px + p2
+    if tot > 0:
+        p1, px, p2 = p1 / tot, px / tot, p2 / tot
+    return p1, px, p2
 
 # =========================
 # UTILS
@@ -159,12 +313,24 @@ def _encode_1x2_target(y: pd.Series) -> np.ndarray:
     return np.array([mapping.get(str(v).upper(), np.nan) for v in y], dtype=float)
 
 
+def _poisson_prob(lmbd: float, k: int) -> float:
+    """Calcola probabilità Poisson: P(X=k) con lambda lmbd."""
+    from math import exp, factorial
+    if lmbd <= 0: return 0.0
+    try: return exp(-lmbd) * (lmbd ** k) / factorial(k)
+    except: return 0.0
+
 def _build_components(algo: str, task: str):
     """
     Ritorna (model, imputer, scaler) per l'algoritmo richiesto.
     task = 'binary' | 'multiclass'
     """
     algo = (algo or "logistic").lower()
+    # Fallback automatico a logistic se lgbm non è disponibile
+    if algo == "lgbm" and LGBMClassifier is None:
+        warnings.warn("LightGBM non trovato, eseguo il training con Logistic Regression come fallback.")
+        algo = "logistic"
+
     task = task.lower()
 
     if algo == "logistic":
@@ -201,6 +367,8 @@ def _build_components(algo: str, task: str):
             subsample=0.85,
             colsample_bytree=0.9,
             reg_lambda=1.0,
+            # Aggiungo min_child_samples per rendere il modello leggermente meno restrittivo.
+            min_child_samples=10,
             random_state=42,
             n_jobs=-1,
         )
@@ -217,6 +385,28 @@ def _build_components(algo: str, task: str):
     raise ValueError(f"Algoritmo non supportato: {algo}")
 
 
+def _poisson_1x2_probs(lambda_home: float, lambda_away: float, max_goals: int = 8) -> Tuple[float, float, float]:
+    """Calcola probabilità 1X2 usando modello Poisson completo."""
+    p1 = px = p2 = 0.0
+    
+    for hg in range(max_goals + 1):
+        ph = _poisson_prob(lambda_home, hg)
+        for ag in range(max_goals + 1):
+            pa = _poisson_prob(lambda_away, ag)
+            p = ph * pa
+            if hg > ag:
+                p1 += p
+            elif hg == ag:
+                px += p
+            else:
+                p2 += p
+    
+    total = p1 + px + p2
+    if total > 0:
+        return p1/total, px/total, p2/total
+    return 0.33, 0.34, 0.33 # Neutral default if total is zero
+
+
 def _create_dummy_models_from_data(df: pd.DataFrame):
     """Crea modelli dummy intelligenti usando i dati reali disponibili."""
     # Prepara features
@@ -224,18 +414,18 @@ def _create_dummy_models_from_data(df: pd.DataFrame):
     if not cols:
         print("[WARN] Nessuna feature disponibile, uso dummy sintetici")
         return
-    
+
     df_num = _to_num(df, cols)
-    
+
     # Modello OU: deriva target da probabilità Over/Under basata su xG
-    if all(c in df.columns for c in ["xG_for_5_home", "xG_against_5_home", "xG_for_5_away", "xG_against_5_away"]):
-        xg_h = pd.to_numeric(df["xG_for_5_home"], errors="coerce").fillna(1.2)
-        xga_h = pd.to_numeric(df["xG_against_5_home"], errors="coerce").fillna(1.2)
-        xg_a = pd.to_numeric(df["xG_for_5_away"], errors="coerce").fillna(1.2)
-        xga_a = pd.to_numeric(df["xG_against_5_away"], errors="coerce").fillna(1.2)
-        
+    if all(c in df.columns for c in ["xg_for_home", "xg_against_home", "xg_for_away", "xg_against_away"]):
+        xg_h = pd.to_numeric(df["xg_for_home"], errors="coerce").fillna(DEFAULT_XG_VALUE)
+        xga_h = pd.to_numeric(df["xg_against_home"], errors="coerce").fillna(DEFAULT_XG_VALUE)
+        xg_a = pd.to_numeric(df["xg_for_away"], errors="coerce").fillna(DEFAULT_XG_VALUE)
+        xga_a = pd.to_numeric(df["xg_against_away"], errors="coerce").fillna(DEFAULT_XG_VALUE)
+
         # Stima lambda per Poisson
-        lambda_h = ((xg_h + xga_a) / 2.0 * 1.12).clip(0.3, 4.0)
+        lambda_h = ((xg_h + xga_a) / 2.0 * 1.12).clip(0.3, 4.0) # type: ignore
         lambda_a = ((xg_a + xga_h) / 2.0 * 0.95).clip(0.3, 4.0)
         
         # Calcola probabilità Over 2.5
@@ -247,29 +437,29 @@ def _create_dummy_models_from_data(df: pd.DataFrame):
                     if hg + ag > 2.5:
                         p_over += _poisson_prob(lh, hg) * _poisson_prob(la, ag)
             p_over_list.append(1.0 if p_over > 0.5 else 0.0)
-        
+
         y_ou = np.array(p_over_list)
         X_ou = df_num[cols].fillna(0)
-        
+
         imputer_ou = SimpleImputer(strategy="median")
         scaler_ou = StandardScaler()
         clf_ou = LogisticRegression(max_iter=2000, random_state=42, class_weight="balanced")
-        
+
         X_ou_imp = imputer_ou.fit_transform(X_ou)
         X_ou_scl = scaler_ou.fit_transform(X_ou_imp)
         clf_ou.fit(X_ou_scl, y_ou)
-        
+
         joblib.dump(imputer_ou, OU_IMPUTER_PATH)
         joblib.dump(scaler_ou, OU_SCALER_PATH)
         joblib.dump(clf_ou, OU_MODEL_PATH)
         OU_META_PATH.write_text(json.dumps({"features": cols, "dummy": True, "n_samples": len(df)}, indent=2), encoding="utf-8")
         print(f"[OK] Modello OU dummy creato da {len(df)} match reali")
-    
+
     # Modello 1X2: deriva target da probabilità Poisson
-    if all(c in df.columns for c in ["xG_for_5_home", "xG_for_5_away"]):
-        lambda_h = ((xg_h + xga_a) / 2.0 * 1.12).clip(0.3, 4.0)
+    if all(c in df.columns for c in ["xg_for_home", "xg_for_away"]):
+        lambda_h = ((xg_h + xga_a) / 2.0 * 1.12).clip(0.3, 4.0) # type: ignore
         lambda_a = ((xg_a + xga_h) / 2.0 * 0.95).clip(0.3, 4.0)
-        
+
         y_1x2_list = []
         for lh, la in zip(lambda_h, lambda_a):
             p1, px, p2 = _poisson_1x2_probs(lh, la)
@@ -279,18 +469,18 @@ def _create_dummy_models_from_data(df: pd.DataFrame):
                 y_1x2_list.append(1)  # X
             else:
                 y_1x2_list.append(2)  # 2
-        
+
         y_1x2 = np.array(y_1x2_list)
         X_1x2 = df_num[cols].fillna(0)
-        
+
         imputer_1x2 = SimpleImputer(strategy="median")
         scaler_1x2 = StandardScaler()
         clf_1x2 = LogisticRegression(max_iter=2000, solver="lbfgs", multi_class="multinomial", random_state=42)
-        
+
         X_1x2_imp = imputer_1x2.fit_transform(X_1x2)
         X_1x2_scl = scaler_1x2.fit_transform(X_1x2_imp)
         clf_1x2.fit(X_1x2_scl, y_1x2)
-        
+
         joblib.dump(imputer_1x2, X2_IMPUTER_PATH)
         joblib.dump(scaler_1x2, X2_SCALER_PATH)
         joblib.dump(clf_1x2, X2_MODEL_PATH)
@@ -337,6 +527,7 @@ def train_ou25(algo: str = "logistic"):
     
     try:
         df = pd.read_csv(HIST_OU_PATH)
+        df = _standardize_cols(df)
     except Exception as e:
         print(f"[ERR] Errore lettura {HIST_OU_PATH}: {e}")
         sys.exit(1)
@@ -346,7 +537,7 @@ def train_ou25(algo: str = "logistic"):
         sys.exit(1)
     df = _ensure_target_ou(df)
 
-    cols = [c for c in FEATURES_OU if c in df.columns]
+    cols = _select_features(df, FEATURES_OU, min_nonnull_ratio=0.02)
     if not cols:
         print("[ERR] Nessuna feature compatibile nello storico OU.")
         print(f"[INFO] Feature richieste: {FEATURES_OU}")
@@ -389,11 +580,13 @@ def train_ou25(algo: str = "logistic"):
     if imputer is not None:
         imputer.fit(X_proc)
         X_proc = imputer.transform(X_proc)
+        X_proc = pd.DataFrame(X_proc, columns=cols)
     else:
         X_proc = X_proc.to_numpy()
     if scaler is not None:
         scaler.fit(X_proc)
         X_proc = scaler.transform(X_proc)
+        X_proc = pd.DataFrame(X_proc, columns=cols)
 
     model.fit(X_proc, y)
 
@@ -422,9 +615,10 @@ def train_1x2(algo: str = "logistic"):
         print(f"[ERR] Storico 1X2 non trovato: {HIST_1X2_PATH}")
         sys.exit(1)
     df = pd.read_csv(HIST_1X2_PATH)
+    df = _standardize_cols(df)
     df = _ensure_target_1x2(df)
 
-    cols = [c for c in FEATURES_1X2 if c in df.columns]
+    cols = _select_features(df, FEATURES_1X2, min_nonnull_ratio=0.02)
     if not cols:
         print("[ERR] Nessuna feature compatibile nello storico 1X2.")
         sys.exit(1)
@@ -467,11 +661,13 @@ def train_1x2(algo: str = "logistic"):
     if imputer is not None:
         imputer.fit(X_proc)
         X_proc = imputer.transform(X_proc)
+        X_proc = pd.DataFrame(X_proc, columns=cols)
     else:
         X_proc = X_proc.to_numpy()
     if scaler is not None:
         scaler.fit(X_proc)
         X_proc = scaler.transform(X_proc)
+        X_proc = pd.DataFrame(X_proc, columns=cols)
 
     model.fit(X_proc, y)
 
@@ -531,143 +727,108 @@ def _predict_ou_row(
         return 0.5, 0.5  # fallback neutro
 
 
-def _poisson_prob(lmbd: float, k: int) -> float:
-    """Calcola probabilità Poisson: P(X=k) con lambda lmbd."""
-    from math import exp, factorial
-    if lmbd <= 0:
-        return 0.0
-    try:
-        return exp(-lmbd) * (lmbd ** k) / factorial(k)
-    except:
-        return 0.0
-
-
-def _poisson_1x2_probs(lambda_home: float, lambda_away: float, max_goals: int = 8) -> Tuple[float, float, float]:
-    """Calcola probabilità 1X2 usando modello Poisson completo."""
-    p1 = px = p2 = 0.0
-    
-    for hg in range(max_goals + 1):
-        ph = _poisson_prob(lambda_home, hg)
-        for ag in range(max_goals + 1):
-            pa = _poisson_prob(lambda_away, ag)
-            p = ph * pa
-            if hg > ag:
-                p1 += p
-            elif hg == ag:
-                px += p
-            else:
-                p2 += p
-    
-    total = p1 + px + p2
-    if total > 0:
-        return p1/total, px/total, p2/total
-    return 0.33, 0.34, 0.33
-
-
 def _fallback_1x2_prob(r: pd.Series) -> Tuple[float, float, float]:
-    """Calcola probabilità 1X2 usando fallback intelligente (Poisson da xG o quote)."""
-    # Metodo 1: Usa xG per modello Poisson accurato
-    xg_home = pd.to_numeric(r.get("xG_for_5_home"), errors="coerce")
-    xg_away = pd.to_numeric(r.get("xG_for_5_away"), errors="coerce")
-    xga_home = pd.to_numeric(r.get("xG_against_5_home"), errors="coerce")
-    xga_away = pd.to_numeric(r.get("xG_against_5_away"), errors="coerce")
-    
-    # Calcola lambda usando xG for e xG against dell'avversario
-    # IGNORA valori default (1.2) - sono placeholder quando dati non disponibili
-    if (pd.notna(xg_home) and pd.notna(xga_away) and 
-        xg_home > 0 and xga_away > 0 and 
-        not (xg_home == 1.2 and xga_away == 1.2)):  # Evita default
-        # Lambda home = media tra xG for home e xG against away
-        lambda_h = (xg_home + xga_away) / 2.0
-        lambda_h = max(0.3, min(4.0, lambda_h))  # Limiti ragionevoli
-        
-        if (pd.notna(xg_away) and pd.notna(xga_home) and 
-            xg_away > 0 and xga_home > 0 and
-            not (xg_away == 1.2 and xga_home == 1.2)):  # Evita default
-            lambda_a = (xg_away + xga_home) / 2.0
-            lambda_a = max(0.3, min(4.0, lambda_a))
-            
-            # Aggiungi home advantage (circa 10-15%)
-            lambda_h *= 1.12
-            lambda_a *= 0.95
-            
-            # Usa modello Poisson completo
-            return _poisson_1x2_probs(lambda_h, lambda_a)
-        elif pd.notna(xg_away) and xg_away > 0 and xg_away != 1.2:
-            # Fallback: usa solo xG for
-            lambda_a = max(0.3, min(4.0, xg_away))
-            lambda_h = max(0.3, min(4.0, xg_home)) * 1.12
-            return _poisson_1x2_probs(lambda_h, lambda_a)
-    
-    # Metodo 2: Se xG non disponibili, usa quote (anche parziali)
-    o1 = pd.to_numeric(r.get("odds_1"), errors="coerce")
-    ox = pd.to_numeric(r.get("odds_x"), errors="coerce")
-    o2 = pd.to_numeric(r.get("odds_2"), errors="coerce")
-    
-    # Se abbiamo tutte e 3 le quote
-    if pd.notna(o1) and pd.notna(ox) and pd.notna(o2) and all(o > 1.0 for o in [o1, ox, o2]):
-        # Calcola probabilità implicite
-        p1_impl = 1.0 / o1
-        px_impl = 1.0 / ox
-        p2_impl = 1.0 / o2
-        total = p1_impl + px_impl + p2_impl
-        
-        if total > 0:
-            # Normalizza (rimuove overround) e applica leggera correzione home advantage
-            p1_norm = p1_impl / total
-            px_norm = px_impl / total
-            p2_norm = p2_impl / total
-            
-            # Leggera correzione: aumenta probabilità home del 2-3%
-            p1_norm = min(0.85, p1_norm * 1.02)
-            p2_norm = max(0.05, p2_norm * 0.98)
-            px_norm = 1.0 - p1_norm - p2_norm
-            
-            return p1_norm, px_norm, p2_norm
-    
-    # Metodo 2b: Se abbiamo solo alcune quote, stima le altre in modo più intelligente
-    if pd.notna(ox) and ox > 1.0:
-        px_impl = 1.0 / ox
-        
-        # Stima più sofisticata basata su odds_x
-        # Se odds_x è molto alta (>10), partita molto sbilanciata (una squadra fortemente favorita)
-        # Se odds_x è media (3-5), partita equilibrata
-        # Se odds_x è bassa (<3), partita molto equilibrata (alta probabilità pareggio)
-        
-        if ox > 10.0:
-            # Partita molto sbilanciata - una squadra fortemente favorita
-            # Stima: favorito ha ~60-70%, l'altro ~20-30%
-            remaining = 1.0 - px_impl
-            # Home leggermente favorito per default
-            p1_est = remaining * 0.65
-            p2_est = remaining * 0.35
-        elif ox > 5.0:
-            # Partita sbilanciata
-            remaining = 1.0 - px_impl
-            p1_est = remaining * 0.58
-            p2_est = remaining * 0.42
-        elif ox > 3.5:
-            # Partita leggermente sbilanciata
-            remaining = 1.0 - px_impl
-            p1_est = remaining * 0.53
-            p2_est = remaining * 0.47
-        elif ox > 2.8:
-            # Partita equilibrata
-            remaining = (1.0 - px_impl) / 2.0
-            p1_est = remaining * 1.05  # Leggero home advantage
-            p2_est = remaining * 0.95
-        else:
-            # Partita molto equilibrata (bassa probabilità pareggio)
-            remaining = (1.0 - px_impl) / 2.0
-            p1_est = remaining * 1.02
-            p2_est = remaining * 0.98
-        
-        total = p1_est + px_impl + p2_est
-        if total > 0:
-            return p1_est/total, px_impl/total, p2_est/total
-    
-    # Metodo 3: Default equilibrato con leggero home advantage
-    return 0.35, 0.30, 0.35
+    """Calcola probabilità 1X2 usando fallback intelligente (xG incrociati + quote + rumore deterministico)."""
+    match_id = str(r.get("match_id", r.get("home", "") + r.get("away", "")))
+    noise = _hash_noise(match_id)
+
+    xg_home = pd.to_numeric(r.get("xg_for_home"), errors="coerce")
+    xg_away = pd.to_numeric(r.get("xg_for_away"), errors="coerce")
+    xga_home = pd.to_numeric(r.get("xg_against_home"), errors="coerce")
+    xga_away = pd.to_numeric(r.get("xg_against_away"), errors="coerce")
+    conf = pd.to_numeric(r.get("xg_confidence"), errors="coerce")
+    src_home = str(r.get("xg_source_home", "") or "").lower()
+    src_away = str(r.get("xg_source_away", "") or "").lower()
+
+    odds_1 = pd.to_numeric(r.get("odds_1"), errors="coerce")
+    odds_x = pd.to_numeric(r.get("odds_x"), errors="coerce")
+    odds_2 = pd.to_numeric(r.get("odds_2"), errors="coerce")
+    odds_probs = _normalize_odds_probs(odds_1, odds_x, odds_2)
+
+    # Check xG validi
+    has_valid_xg = (
+        pd.notna(xg_home) and xg_home > 0 and xg_home != DEFAULT_XG_VALUE and
+        pd.notna(xga_away) and xga_away > 0 and xga_away != DEFAULT_XG_VALUE and
+        pd.notna(xg_away) and xg_away > 0 and xg_away != DEFAULT_XG_VALUE and
+        pd.notna(xga_home) and xga_home > 0 and xga_home != DEFAULT_XG_VALUE
+    )
+
+    if has_valid_xg:
+        _, _, _, lam_home, lam_away, _, _ = expected_goals_to_prob(
+            xg_for_home=float(xg_home),
+            xg_against_home=float(xga_home),
+            xg_for_away=float(xg_away),
+            xg_against_away=float(xga_away),
+            rest_home=pd.to_numeric(r.get("rest_days_home"), errors="coerce") if "rest_days_home" in r else None,
+            rest_away=pd.to_numeric(r.get("rest_days_away"), errors="coerce") if "rest_days_away" in r else None,
+            inj_home=pd.to_numeric(r.get("injuries_key_home"), errors="coerce") if "injuries_key_home" in r else None,
+            inj_away=pd.to_numeric(r.get("injuries_key_away"), errors="coerce") if "injuries_key_away" in r else None,
+            travel_km_away=pd.to_numeric(r.get("travel_km_away"), errors="coerce") if "travel_km_away" in r else None,
+            derby_flag=int(pd.to_numeric(r.get("derby_flag"), errors="coerce")) if "derby_flag" in r else 0,
+            europe_home=int(pd.to_numeric(r.get("europe_flag_home"), errors="coerce")) if "europe_flag_home" in r else 0,
+            europe_away=int(pd.to_numeric(r.get("europe_flag_away"), errors="coerce")) if "europe_flag_away" in r else 0,
+            meteo_flag=int(pd.to_numeric(r.get("meteo_flag"), errors="coerce")) if "meteo_flag" in r else 0,
+            seed=match_id,
+            strong_home=None,
+            strong_away=None,
+        )
+
+        # Piccolo aggiustamento verso le quote se presenti
+        lam_home_adj, lam_away_adj = lam_home, lam_away
+        if odds_probs:
+            delta = (odds_probs[0] - odds_probs[2]) * BLEND_HOME_EDGE_CAP
+            lam_home_adj = _clamp(lam_home * (1 + delta), 0.15, 5.0)
+            lam_away_adj = _clamp(lam_away * (1 - delta), 0.15, 5.0)
+
+        p1, px, p2 = _prob_from_lambda(lam_home_adj, lam_away_adj)
+
+        # Blend con quote se pochi dati
+        info_level = "medium"
+        if pd.notna(conf):
+            if conf >= 75:
+                info_level = "high"
+            elif conf >= 50:
+                info_level = "medium"
+            else:
+                info_level = "low"
+        elif "fallback" in (src_home, src_away):
+            info_level = "low"
+        elif "understat" in (src_home, src_away):
+            info_level = "medium"
+
+        if odds_probs:
+            weights = {"high": 0.8, "medium": 0.6, "low": 0.45}
+            w_xg = weights.get(info_level, 0.6)
+            p1 = w_xg * p1 + (1 - w_xg) * odds_probs[0]
+            px = w_xg * px + (1 - w_xg) * odds_probs[1]
+            p2 = w_xg * p2 + (1 - w_xg) * odds_probs[2]
+            tot = p1 + px + p2
+            if tot > 0:
+                p1, px, p2 = p1 / tot, px / tot, p2 / tot
+
+        return p1, px, p2
+
+    # Se xG non disponibili, usa quote se presenti
+    if odds_probs:
+        p1, px, p2 = odds_probs
+        # Applica rumore deterministico leggero per evitare pareggi piatti
+        if noise:
+            p1 = _clamp(p1 * (1 + noise), 0.05, 0.9)
+            p2 = _clamp(p2 * (1 - noise), 0.05, 0.9)
+            tot = p1 + px + p2
+            if tot > 0:
+                p1, px, p2 = p1 / tot, px / tot, p2 / tot
+        return p1, px, p2
+
+    # Default equilibrato con leggero home advantage e rumore
+    p1, px, p2 = 0.36, 0.28, 0.36
+    if noise:
+        p1 = _clamp(p1 * (1 + noise), 0.05, 0.9)
+        p2 = _clamp(p2 * (1 - noise), 0.05, 0.9)
+        tot = p1 + px + p2
+        if tot > 0:
+            p1, px, p2 = p1 / tot, px / tot, p2 / tot
+    return p1, px, p2
 
 
 def _predict_1x2_row(
@@ -697,27 +858,47 @@ def _predict_1x2_row(
             p1, px, p2 = p1/total, px/total, p2/total
         return max(0.0, min(1.0, p1)), max(0.0, min(1.0, px)), max(0.0, min(1.0, p2))
     except Exception as e:
-        print(f"[WARN] Errore predizione 1X2 per {r.get('match_id', 'unknown')}: {e}")
+        warnings.warn(f"Errore predizione 1X2 per {r.get('match_id', 'unknown')}: {e}")
         return _fallback_1x2_prob(r)
 
 
-def load_merged_for_predict() -> pd.DataFrame:
-    if not FIX_PATH.exists() or not FEA_PATH.exists():
-        print("[ERR] fixtures.csv o features.csv non trovati.")
-        sys.exit(1)
-    fix = pd.read_csv(FIX_PATH)
-    fea = pd.read_csv(FEA_PATH)
-    df = pd.merge(fix, fea, on="match_id", how="inner")
-    # garantisci che le colonne quote esistano
-    for c in ["odds_1", "odds_x", "odds_2", "odds_ou25_over", "odds_ou25_under"]:
-        if c not in df.columns:
-            df[c] = np.nan
-    return df
-
-
-def predict_and_report():
+def load_data_from_db(date_str: str, comps: Optional[List[str]] = None) -> pd.DataFrame:
+    """Carica i dati necessari (fixtures, features, odds) dal database per una data specifica."""
+    db = SessionLocal()
     try:
-        df = load_merged_for_predict()
+        # Query per fixtures
+        fix_query = db.query(Fixture).filter(Fixture.date == date_str)
+        if comps:
+            fix_query = fix_query.filter(Fixture.league_code.in_(comps))
+        
+        fix_df = pd.read_sql(fix_query.statement, db.bind)
+        if fix_df.empty:
+            print(f"[INFO] Nessuna partita trovata nel DB per il {date_str} con i filtri specificati.")
+            return pd.DataFrame()
+
+        match_ids = fix_df['match_id'].tolist()
+
+        # Query per features e odds
+        fea_df = pd.read_sql(db.query(Feature).filter(Feature.match_id.in_(match_ids)).statement, db.bind)
+        odds_df = pd.read_sql(db.query(Odds).filter(Odds.match_id.in_(match_ids)).statement, db.bind)
+
+        if fea_df.empty:
+            print(f"[WARN] Nessuna feature trovata per le partite del {date_str}. Impossibile procedere.")
+            return pd.DataFrame()
+
+        # Merge dei dati
+        df = pd.merge(fix_df, fea_df, on="match_id", how="inner")
+        if not odds_df.empty:
+            df = pd.merge(df, odds_df, on="match_id", how="left")
+
+        return df
+    finally:
+        db.close()
+
+
+def predict_and_report(date_str: str, comps: Optional[List[str]] = None):
+    try:
+        df = load_data_from_db(date_str, comps)
     except Exception as e:
         print(f"[ERR] Errore caricamento dati: {e}")
         sys.exit(1)
@@ -795,7 +976,7 @@ def predict_and_report():
         # Se STRICT_ML è True → NON derivare probabilità dalle quote (p1/px/p2 o p_over/p_under rimangono come calcolate dai modelli)
         # Calcolo del value solo se ho sia p che quota
         def _value(p, o):
-            if p is None or np.isnan(p) or o is None:
+            if p is None or not isinstance(p, (int, float)) or np.isnan(p) or o is None:
                 return None
             return round((o - 1) * p - (1 - p), 4)
 
@@ -951,7 +1132,7 @@ def predict_and_report():
         "</style>",
         "</head><body>",
         "<div class='container'>",
-        f"<h1>⚽ Report Previsioni — {datetime.now().strftime('%d/%m/%Y %H:%M')}</h1>",
+        f"<h1>⚽ Report Previsioni — {datetime.fromisoformat(date_str).strftime('%d/%m/%Y')}</h1>",
         "<div class='info'>",
         "<strong>Legenda:</strong><br>",
         "• <strong>Previsione_1X2</strong>: Segno previsto (1=Home, X=Pareggio, 2=Away)<br>",
@@ -1027,9 +1208,15 @@ def main():
         help="Esegue le previsioni su fixtures+features",
     )
     ap.add_argument(
+        "--date", help="Data (YYYY-MM-DD) per cui eseguire le previsioni"
+    )
+    ap.add_argument(
+        "--comps", help="Filtra competizioni per le previsioni, es. 'SA,PL,CL'"
+    )
+    ap.add_argument(
         "--algo",
         choices=["logistic", "lgbm"],
-        default="logistic",
+        default="lgbm",
         help="Algoritmo da usare per il training (default: logistic).",
     )
     args = ap.parse_args()
@@ -1043,15 +1230,24 @@ def main():
     if args.train_dummy:
         # Crea modelli dummy intelligenti usando features reali se disponibili
         print("[INFO] Creazione modelli dummy intelligenti...")
-        
-        # Prova a usare fixtures+features esistenti per creare dataset dummy
+
+        # Prova a usare dati recenti dal DB per creare dataset dummy
         try:
-            fix_df = pd.read_csv(FIX_PATH) if FIX_PATH.exists() else pd.DataFrame()
-            fea_df = pd.read_csv(FEA_PATH) if FEA_PATH.exists() else pd.DataFrame()
+            # Carica i dati degli ultimi 3 giorni
+            today = datetime.now().date()
+            merged = pd.DataFrame()
+            for i in range(3):
+                day = today - timedelta(days=i)
+                day_str = day.isoformat()
+                day_df = load_data_from_db(day_str)
+                if not day_df.empty:
+                    merged = pd.concat([merged, day_df], ignore_index=True)
             
-            if not fix_df.empty and not fea_df.empty:
-                merged = pd.merge(fix_df, fea_df, on="match_id", how="inner")
-                if not merged.empty and len(merged) >= 10:
+            if not merged.empty:
+                # Rimuovi duplicati se lo stesso match_id appare in più giorni (improbabile)
+                merged = merged.drop_duplicates(subset=["match_id"])
+                
+                if len(merged) >= 10:
                     print(f"[INFO] Trovati {len(merged)} match con features. Creo modelli basati su questi dati...")
                     _create_dummy_models_from_data(merged)
                     return
@@ -1077,8 +1273,16 @@ def main():
             OU_META_PATH.write_text(json.dumps({"features": FEATURES_OU, "dummy": True}, indent=2), encoding="utf-8")
             print(f"[OK] Modello dummy OU creato")
         return
-    # default: predict
-    predict_and_report()
+    
+    # Default: predict
+    if args.predict or not (args.train_ou or args.train_1x2 or args.train_dummy):
+        if not args.date:
+            print("[ERR] L'opzione --predict richiede --date YYYY-MM-DD.")
+            sys.exit(1)
+        
+        comps_list = [c.strip().upper() for c in args.comps.split(",")] if args.comps else None
+        predict_and_report(date_str=args.date, comps=comps_list)
+
 
 
 if __name__ == "__main__":

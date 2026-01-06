@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BET Pipeline - Esiti Partite</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .stat-card.success {
+            border-left-color: #10b981;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .nav {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .nav a {
+            display: inline-block;
+            padding: 10px 18px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        .nav a:hover {
+            background: #764ba2;
+        }
+        
+        .nav a.active {
+            background: #764ba2;
+        }
+        
+        .results-table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: #f5f5f5;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            font-size: 13px;
+        }
+        
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 13px;
+        }
+        
+        tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .league-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #667eea;
+            color: white;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
+        .match-cell {
+            font-weight: 600;
+        }
+        
+        .result-correct {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .result-incorrect {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .prob-bar {
+            display: inline-block;
+            background: #e0e7ff;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .no-data {
+            padding: 40px;
+            text-align: center;
+            color: #999;
+        }
+        
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📊 Esiti Partite</h1>
+            <p style="color: #666; margin-bottom: 15px;">Confronto tra previsioni e risultati reali</p>
+            
+            {% if results %}
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-label">Partite Analizzate</div>
+                    <div class="stat-value">{{ total }}</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-label">Previsioni Corrette</div>
+                    <div class="stat-value">{{ correct }}</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-label">Accuratezza</div>
+                    <div class="stat-value">{{ accuracy }}%</div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="nav">
+                <a href="/">← Dashboard</a>
+                <a href="/data">Dati Partite</a>
+                <a href="/predictions-xg">Analisi xG</a>
+                <a href="/proposta">Proposta Calcolata</a>
+                <a href="/esiti" class="active">Esiti Partite</a>
+            </div>
+        </div>
+        
+        <!-- Results Table -->
+        {% if results %}
+            <div class="results-table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Lega</th>
+                            <th>Partita</th>
+                            <th>Previsione</th>
+                            <th>Risultato</th>
+                            <th>Prob Prev</th>
+                            <th>Prob Real</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in results %}
+                        <tr>
+                            <td>{{ result.date }}</td>
+                            <td><span class="league-badge">{{ result.league }}</span></td>
+                            <td class="match-cell">{{ result.home }} vs {{ result.away }}</td>
+                            <td style="font-weight: bold; font-family: 'Courier New', monospace; font-size: 14px;">{{ result.most_prob_result }}</td>
+                            <td style="font-weight: bold; font-family: 'Courier New', monospace; font-size: 14px;">{{ result.actual_result }}</td>
+                            <td><span class="prob-bar">{{ result.most_prob_pct }}%</span></td>
+                            <td><span class="prob-bar">{{ result.actual_prob }}%</span></td>
+                            <td>
+                                {% if result.prediction_correct %}
+                                    <span class="result-correct">✅ CORRETTA</span>
+                                {% else %}
+                                    <span class="result-incorrect">❌ SBAGLIATA</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="results-table-container">
+                <div class="no-data">
+                    <p style="font-size: 16px; margin-bottom: 10px;">📭 Nessun esito disponibile</p>
+                    <p style="font-size: 12px;">Le partite risultate non sono ancora disponibili nel database.</p>
+                </div>
+            </div>
+        {% endif %}
+        
+        <div class="footer">
+            <p>BET Pipeline © 2025 | Verifica Accuratezza delle Previsioni</p>
+        </div>
+    </div>
+</body>
+</html>

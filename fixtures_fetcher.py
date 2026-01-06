@@ -13,9 +13,13 @@ import pandas as pd
 import requests
 from unidecode import unidecode
 
+# Importazioni per il database
+from sqlalchemy.orm import Session
+from database import SessionLocal
+from models import Fixture, Odds
+
 ROOT = Path(__file__).resolve().parent
 CFG = ROOT / "config.toml"
-OUT = ROOT / "fixtures.csv"
 
 # football-data.org competition IDs (v4)
 COMP_MAP = {
@@ -49,7 +53,10 @@ SPORT_KEYS = {
 
 
 def read_cfg():
-    import tomllib
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib
 
     cfg = tomllib.loads(CFG.read_text(encoding="utf-8"))
     api_cfg = cfg.get("api", {})
@@ -144,22 +151,16 @@ def fd_get(path, params=None, token="", max_retries=3):
     raise RuntimeError(f"FD API fallita dopo {max_retries} tentativi")
 
 
-def fd_fixtures_for(code: str, date_str: str, token: str):
+def fd_fixtures_for(code: str, date_from: str, date_to: str, token: str):
     comp_id = COMP_MAP.get(code)
     if not comp_id:
         return []
-    try:
-        day = datetime.fromisoformat(date_str)
-    except ValueError:
-        print(f"[ERR] Data non valida: {date_str}")
-        return []
-    
-    dfrom = day.strftime("%Y-%m-%d")
-    dto = (day + timedelta(days=1)).strftime("%Y-%m-%d")
     
     try:
         r = fd_get(
-            f"/competitions/{comp_id}/matches", {"dateFrom": dfrom, "dateTo": dto}, token
+            f"/competitions/{comp_id}/matches",
+            {"dateFrom": date_from, "dateTo": date_to},
+            token,
         )
         js = r.json()
     except PermissionError:
@@ -179,6 +180,7 @@ def fd_fixtures_for(code: str, date_str: str, token: str):
             if not utc_str:
                 continue
             utc = datetime.fromisoformat(utc_str.replace("Z", "+00:00"))
+            date_str = utc.strftime("%Y-%m-%d")
             
             home_name = m.get("homeTeam", {}).get("name", "")
             away_name = m.get("awayTeam", {}).get("name", "")
@@ -188,9 +190,9 @@ def fd_fixtures_for(code: str, date_str: str, token: str):
             # Match ID più robusto: usa ID match se disponibile
             match_id_api = m.get("id")
             if match_id_api:
-                match_id = f"{date_str.replace('-', '')}_{match_id_api}_{code}"
+                match_id = f"{utc.strftime('%Y%m%d')}_{match_id_api}_{code}"
             else:
-                match_id = f"{date_str.replace('-', '')}_{unidecode(home_name).upper().replace(' ', '_')}_{unidecode(away_name).upper().replace(' ', '_')}_{code}"
+                match_id = f"{utc.strftime('%Y%m%d')}_{unidecode(home_name).upper().replace(' ', '_')}_{unidecode(away_name).upper().replace(' ', '_')}_{code}"
             
             comp_name = js.get("competition", {}).get("name", code)
             
@@ -213,25 +215,16 @@ def fd_fixtures_for(code: str, date_str: str, token: str):
     return rows
 
 
-def toa_fixtures_for(code: str, date_str: str, api_key: str, max_retries=2):
+def toa_fixtures_for(
+    code: str, date_from: datetime.date, date_to: datetime.date, api_key: str, max_retries=2
+):
     """Fallback: costruisce i fixtures da TheOddsAPI (home/away/commence_time)."""
     sport = SPORT_KEYS.get(code)
     if not sport:
         return []
     
     url = f"https://api.the-odds-api.com/v4/sports/{sport}/odds"
-    params = {
-        "apiKey": api_key,
-        "regions": "eu,uk",
-        "markets": "h2h",
-        "oddsFormat": "decimal",
-        "dateFormat": "iso",
-    }
-    
-    try:
-        wanted = datetime.fromisoformat(date_str).date()
-    except ValueError:
-        return []
+    params = {"apiKey": api_key, "regions": "eu,uk", "markets": "h2h"}
     
     for attempt in range(max_retries):
         try:
@@ -265,14 +258,15 @@ def toa_fixtures_for(code: str, date_str: str, api_key: str, max_retries=2):
             if not ct:
                 continue
             dt = datetime.fromisoformat(ct.replace("Z", "+00:00"))
-            if dt.date() != wanted:
+            if not (date_from <= dt.date() <= date_to):
                 continue
             home = ev.get("home_team", "").strip()
             away = ev.get("away_team", "").strip()
             if not home or not away:
                 continue
             
-            match_id = f"{date_str.replace('-', '')}_{unidecode(home).upper().replace(' ', '_')}_{unidecode(away).upper().replace(' ', '_')}_{code}"
+            date_str = dt.strftime("%Y-%m-%d")
+            match_id = f"{dt.strftime('%Y%m%d')}_{unidecode(home).upper().replace(' ', '_')}_{unidecode(away).upper().replace(' ', '_')}_{code}"
             
             rows.append(
                 {
@@ -294,22 +288,56 @@ def toa_fixtures_for(code: str, date_str: str, api_key: str, max_retries=2):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--date", required=True, help="YYYY-MM-DD")
-    ap.add_argument("--comps", required=True, help="es. SA,PL,EL")
+    ap.add_argument(
+        "--days",
+        type=int,
+        default=10,
+        help="Numero di giorni nel futuro da scaricare (default: 10, max per API free)",
+    )
+    ap.add_argument(
+        "--comps", help="es. SA,PL,EL. Default: tutti i campionati gestiti."
+    )
+    ap.add_argument(
+        "--date",
+        type=str,
+        default=None,
+        help="Data di inizio da cui scaricare (YYYY-MM-DD). Default: oggi.",
+    )
     args = ap.parse_args()
 
     fd_token, toa_key = read_cfg()
 
-    all_rows = []
-    for code in [c.strip() for c in args.comps.split(",") if c.strip()]:
+    # Calcola il range di date
+    if args.date:
         try:
-            rows = fd_fixtures_for(code, args.date, fd_token)
+            start_date = datetime.strptime(args.date, "%Y-%m-%d").date()
+        except ValueError:
+            print(f"[ERR] Formato data non valido: {args.date}. Usare YYYY-MM-DD.")
+            return
+    else:
+        start_date = datetime.utcnow().date()
+    date_from_dt = start_date
+    date_to_dt = date_from_dt + timedelta(days=args.days - 1)
+    date_from_str = date_from_dt.strftime("%Y-%m-%d")
+    date_to_str = date_to_dt.strftime("%Y-%m-%d")
+    print(f"[INFO] Scarico partite da {date_from_str} a {date_to_str} ({args.days} giorni).")
+
+    if args.comps:
+        comps_to_run = [c.strip().upper() for c in args.comps.split(",") if c.strip()]
+    else:
+        comps_to_run = list(COMP_MAP.keys())
+        print(f"[INFO] Nessun campionato specificato, scarico tutti: {', '.join(comps_to_run)}")
+
+    all_rows = []
+    for code in comps_to_run:
+        try:
+            rows = fd_fixtures_for(code, date_from_str, date_to_str, fd_token)
             if rows:
                 print(f"[FD] {code}: trovate {len(rows)} partite.")
                 all_rows.extend(rows)
             else:
                 # nessun match → fallback
-                fr = toa_fixtures_for(code, args.date, toa_key)
+                fr = toa_fixtures_for(code, date_from_dt, date_to_dt, toa_key)
                 if fr:
                     print(
                         f"[FD→TOA] {code}: FD vuoto, recuperate {len(fr)} partite da TheOddsAPI."
@@ -319,7 +347,7 @@ def main():
                     print(f"[WARN] {code}: nessuna partita da FD o TOA.")
         except PermissionError:
             # 401/403 → usa TOA
-            fr = toa_fixtures_for(code, args.date, toa_key)
+            fr = toa_fixtures_for(code, date_from_dt, date_to_dt, toa_key)
             if fr:
                 print(f"[FD 403] {code}: fallback TOA, {len(fr)} partite.")
                 all_rows.extend(fr)
@@ -330,32 +358,48 @@ def main():
         except Exception as e:
             print(f"[ERR] {code}: {e}")
 
-    df = pd.DataFrame(all_rows)
-    if df.empty:
+    if not all_rows:
         print("[WARN] Nessuna partita trovata.")
-        df = pd.DataFrame(
-            columns=[
-                "match_id",
-                "date",
-                "time",
-                "league",
-                "league_code",
-                "home",
-                "away",
-            ]
-        )
+        return
 
-    # colonne quote vuote (verranno riempite dopo)
-    for c in ["odds_1", "odds_x", "odds_2", "odds_ou25_over", "odds_ou25_under", "line_ou"]:
-        if c not in df.columns:
-            df[c] = pd.NA
-    
-    # Assicura colonna line_ou con default 2.5
-    if "line_ou" in df.columns:
-        df["line_ou"] = df["line_ou"].fillna("2.5")
+    # --- Logica di inserimento nel Database ---
+    db: Session = SessionLocal()
+    try:
+        print(f"\n[DB] Connessione al database per inserire/aggiornare {len(all_rows)} partite...")
+        
+        match_ids_processed = set()
+        upserted_count = 0
 
-    df.to_csv(OUT, index=False)
-    print(f"[OK] Fixtures scritte: {len(df)} righe → {OUT}")
+        for row_data in all_rows:
+            match_id = row_data.get("match_id")
+            if not match_id or match_id in match_ids_processed:
+                continue
+
+            # Crea l'oggetto Fixture
+            fixture_obj = Fixture(
+                match_id=match_id,
+                date=datetime.fromisoformat(row_data["date"]).date(),
+                time=row_data.get("time"),
+                time_local=row_data.get("time_local"),
+                league=row_data.get("league"),
+                league_code=row_data.get("league_code"),
+                home=row_data.get("home"),
+                away=row_data.get("away"),
+            )
+
+            # db.merge gestisce INSERT o UPDATE in base alla chiave primaria
+            db.merge(fixture_obj)
+            match_ids_processed.add(match_id)
+            upserted_count += 1
+
+        db.commit()
+        print(f"[DB] Commit eseguito. {upserted_count} partite inserite/aggiornate nel database.")
+    except Exception as e:
+        print(f"[DB-ERR] Errore durante l'operazione sul database: {e}")
+        db.rollback()
+    finally:
+        db.close()
+        print("[DB] Connessione al database chiusa.")
 
 
 if __name__ == "__main__":

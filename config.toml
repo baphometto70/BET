@@ -3,10 +3,17 @@
 # Imposta i token qui o tramite variabili d'ambiente
 # FOOTBALL_DATA_ORG_TOKEN / THEODDSAPI_KEY.
 FOOTBALL_DATA_ORG_TOKEN = "9f48528ff8d5482f8851ae808eaa9f13"
-THEODDSAPI_KEY          = "be349fbdc363b146f201c8ecd4f11454"
+THEODDSAPI_KEY          = "dd036a9e9bfe6a4b3753268c8f5f62ec"
 
 [settings]
 # soglia oltre cui scartare righe (overround eccessivo = mercato sporco)
 max_overround = 0.6
 # bookmaker whitelist (vuota = tutti)
 bookmakers = []
+
+[database]
+host = "localhost"
+port = 5432
+user = "gennaro"
+password = "g3nn4r070"
+dbname = "betting_db"

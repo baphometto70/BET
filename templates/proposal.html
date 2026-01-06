@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BET Pipeline - Proposta Calcolata</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        
+        .nav {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .nav a {
+            display: inline-block;
+            padding: 10px 18px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        .nav a:hover {
+            background: #764ba2;
+        }
+        
+        .nav a.active {
+            background: #764ba2;
+        }
+        
+        .proposal-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .proposal-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .proposal-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        /* Colori per affidabilità dati */
+        .proposal-card.high-reliability .card-header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        .proposal-card.medium-reliability .card-header {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+        
+        .proposal-card.low-reliability .card-header {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        
+        .match-title {
+            font-weight: bold;
+            font-size: 15px;
+        }
+        
+        .league-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
+        .card-body {
+            padding: 20px;
+        }
+        
+        .match-info {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 15px;
+        }
+        
+        .xg-display {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .xg-label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .xg-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .proposal-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 4px;
+            text-align: center;
+            margin: 15px 0;
+        }
+        
+        .proposal-label {
+            font-size: 12px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .proposal-result {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .proposal-prob {
+            font-size: 14px;
+            opacity: 0.95;
+        }
+        
+        .odds-display {
+            background: #fef3c7;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 15px;
+        }
+        
+        .odds-label {
+            font-size: 11px;
+            color: #92400e;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .odds-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+        }
+        
+        .odd-item {
+            text-align: center;
+        }
+        
+        .odd-value {
+            font-weight: bold;
+            color: #92400e;
+            font-size: 16px;
+        }
+        
+        .odd-label {
+            font-size: 10px;
+            color: #92400e;
+        }
+        
+        .actual-result {
+            background: #d1fae5;
+            border: 2px solid #10b981;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 12px;
+            text-align: center;
+        }
+        
+        .actual-result-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #065f46;
+            font-family: 'Courier New', monospace;
+            margin: 5px 0;
+        }
+        
+        .result-status {
+            font-size: 12px;
+            color: #065f46;
+        }
+        
+        .correct {
+            color: #10b981;
+            font-weight: bold;
+        }
+        
+        .incorrect {
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+            color: #991b1b;
+        }
+        
+        .no-data {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            text-align: center;
+            color: #999;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+            font-size: 12px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🎯 Proposta Calcolata</h1>
+            <p style="color: #666; margin-bottom: 15px;">Risultato più probabile per ogni partita</p>
+            <!-- Riepilogo affidabilità per la data -->
+            {% if reliability_counts %}
+            <div style="display:flex; gap:12px; margin-top:10px; align-items:center;">
+                <div style="font-size:13px; color:#444;">Riepilogo affidabilità per <strong>{{ selected_date }}</strong>:</div>
+                <div style="background:#d1fae5; color:#065f46; padding:6px 10px; border-radius:6px; font-weight:700;">✓ Alta: {{ reliability_counts.high }}</div>
+                <div style="background:#dbeafe; color:#1e40af; padding:6px 10px; border-radius:6px; font-weight:700;">~ Media: {{ reliability_counts.medium }}</div>
+                <div style="background:#fee2e2; color:#991b1b; padding:6px 10px; border-radius:6px; font-weight:700;">⚠ Bassa: {{ reliability_counts.low }}</div>
+                <div style="margin-left:auto; font-size:12px; color:#666;">Legenda: verde=Understat, blue=Quote, rosso=Fallback</div>
+            </div>
+            {% endif %}
+            {% if proposals %}
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-label">Total Partite</div>
+                    <div class="stat-value">{{ proposals|length }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Con Risultato</div>
+                    <div class="stat-value">{{ proposals|selectattr('is_finished')|list|length }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Azzeccate</div>
+                    <div class="stat-value">{{ proposals|selectattr('prediction_correct')|list|length }}</div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="nav">
+                <a href="/">← Dashboard</a>
+                <a href="/data">Dati Partite</a>
+                <a href="/predictions-xg">Analisi xG</a>
+                <a href="/proposta" class="active">Proposta Calcolata</a>
+                <a href="/esiti">Esiti Partite</a>
+            </div>
+        </div>
+        
+        <!-- Proposals -->
+        {% if proposals %}
+            <div class="proposal-grid">
+                {% for prop in proposals %}
+                <div class="proposal-card {% if prop.data_reliability == 'high' %}high-reliability{% elif prop.data_reliability == 'medium' %}medium-reliability{% else %}low-reliability{% endif %}">
+                    <div class="card-header">
+                        <div>
+                            <div class="match-title">{{ prop.home }} vs {{ prop.away }}</div>
+                            <div style="font-size: 12px; margin-top: 5px;">{{ prop.date }} @ {{ prop.time }}</div>
+                        </div>
+                        <div class="league-badge">{{ prop.league }}</div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <!-- xG -->
+                        <div class="xg-display">
+                            <div class="xg-label">Expected Goals</div>
+                            <div class="xg-value">{{ prop.xg_for }} - {{ prop.xga_for }}</div>
+                        </div>
+                        
+                        <!-- Proposta -->
+                        <div class="proposal-box">
+                            <div class="proposal-label">🎯 Risultato Più Probabile</div>
+                            <div class="proposal-result">{{ prop.most_prob_result }}</div>
+                            <div class="proposal-prob">{{ prop.most_prob_pct }}% di probabilità</div>
+                        </div>
+                        <div style="display:flex; gap:10px; align-items:center; margin-top:6px;">
+                            <div style="font-size:12px; color:#666;">Affidabilità:</div>
+                            {% if prop.data_reliability == 'high' %}
+                                <div style="background:#d1fae5; color:#065f46; padding:6px 8px; border-radius:6px; font-weight:700; font-size:12px;">✓ ALTA</div>
+                            {% elif prop.data_reliability == 'medium' %}
+                                <div style="background:#dbeafe; color:#1e40af; padding:6px 8px; border-radius:6px; font-weight:700; font-size:12px;">~ MEDIA</div>
+                            {% else %}
+                                <div style="background:#fee2e2; color:#991b1b; padding:6px 8px; border-radius:6px; font-weight:700; font-size:12px;">⚠ BASSA</div>
+                            {% endif %}
+                            <div style="margin-left:auto; font-size:11px; color:#666; display:flex; gap:8px; align-items:center;">
+                                <div>Origine: <strong>{{ prop.xg_source_home or '-' }} / {{ prop.xg_source_away or '-' }}</strong></div>
+                                <div style="background:#f3f4f6; padding:5px 8px; border-radius:6px; font-weight:600;">Confidenza xG: {{ prop.xg_confidence if prop.xg_confidence is not none else '-' }}%</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Top 3 Risultati -->
+                        <div style="background: #e0e7ff; padding: 12px; border-radius: 4px; margin: 15px 0; font-size: 13px; color: #4c1d95;">
+                            <div style="font-weight: 600; margin-bottom: 8px; text-transform: uppercase;">📊 Top 3 Scenari</div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
+                                {% if prop.top_results_list %}
+                                    {% for r in prop.top_results_list %}
+                                        <div style="background: white; color:#111; padding:6px 10px; border-radius:6px; font-weight:600;">
+                                            {{ r.score }} <span style="opacity:0.85; font-weight:400;">({{ r.pct }}%)</span>
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div style="color:#4c1d95;">{{ prop.top_results }}</div>
+                                {% endif %}
+                                <div style="margin-left:auto; font-size:11px; opacity:0.9;">Confidenza Top-3: <strong>{{ prop.top3_confidence }}%</strong></div>
+                            </div>
+                            <div style="font-size:11px; color:#2a2752;">Nota: risultati stimati con modello Poisson a partire dagli xG; usare come indicazione, non come certezza.</div>
+                        </div>
+                        
+                        <!-- Odds -->
+                        {% if prop.odds_1 != '-' %}
+                        <div class="odds-display">
+                            <div class="odds-label">Odds 1X2</div>
+                            <div class="odds-row">
+                                <div class="odd-item">
+                                    <div class="odd-value">{{ prop.odds_1 }}</div>
+                                    <div class="odd-label">Home</div>
+                                </div>
+                                <div class="odd-item">
+                                    <div class="odd-value">{{ prop.odds_x }}</div>
+                                    <div class="odd-label">Draw</div>
+                                </div>
+                                <div class="odd-item">
+                                    <div class="odd-value">{{ prop.odds_2 }}</div>
+                                    <div class="odd-label">Away</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Risultato Effettivo -->
+                        {% if prop.is_finished %}
+                        <div class="actual-result {% if not prop.prediction_correct %}incorrect{% endif %}">
+                            <div class="result-status">Risultato Effettivo</div>
+                            <div class="actual-result-value">{{ prop.actual_result }}</div>
+                            <div class="result-status">
+                                {% if prop.prediction_correct %}
+                                    <span class="correct">✅ PREVISIONE CORRETTA</span>
+                                {% else %}
+                                    ❌ Previsione errata ({{ prop.actual_prob }}% prob)
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="no-data">
+                <p style="font-size: 16px; margin-bottom: 10px;">📭 Nessuna proposta disponibile</p>
+                <p style="font-size: 12px;">Esegui il pipeline per popolare i dati delle partite.</p>
+            </div>
+        {% endif %}
+        
+        <div class="footer">
+            <p>BET Pipeline © 2025 | Proposta Calcolata da xG Expected Goals</p>
+        </div>
+    </div>
+</body>
+</html>

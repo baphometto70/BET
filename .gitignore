@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Cache
+cache/
+*.cache
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+predictions.csv
+picks_only.csv
+report.html
+report_scommesse.html
+fixtures.csv
+features.csv
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Model artifacts (opzionale - commentare se vuoi tracciare i modelli)
+# models/*.joblib
+
+# Data files (opzionale - commentare se vuoi tracciare i dati)
+# data/*.csv

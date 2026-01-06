@@ -22,6 +22,7 @@ Dipendenze:
   pip install requests pandas beautifulsoup4 lxml rapidfuzz
 """
 
+import io
 import json
 import math
 import re
@@ -37,7 +38,13 @@ import pandas as pd
 import requests
 from rapidfuzz import fuzz, process
 
+# Importazioni per il database
+from sqlalchemy.orm import Session, joinedload
+from database import SessionLocal, Base, engine
+from models import Fixture, Feature, Odds, TeamMapping
+
 # bs4/lxml tenuti per eventuali parsing futuri
+
 
 # ----------------- CONFIG -----------------
 COMP_MAP = {
@@ -71,10 +78,10 @@ UNDERSTAT_LEAGUE = {
 
 FEA_COLS = [
     "match_id",
-    "xG_for_5_home",
-    "xG_against_5_home",
-    "xG_for_5_away",
-    "xG_against_5_away",
+    "xg_for_home",
+    "xg_against_home",
+    "xg_for_away",
+    "xg_against_away",
     "rest_days_home",
     "rest_days_away",
     "injuries_key_home",
@@ -88,6 +95,20 @@ FEA_COLS = [
     "travel_km_away",
 ]
 
+# Understat slugs per leghe (per refresh elenco squadre)
+UNDERSTAT_LEAGUE = {
+    "SA": "Serie_A",
+    "PL": "EPL",
+    "PD": "La_Liga",
+    "BL1": "Bundesliga",
+    "FL1": "Ligue_1",
+    "DED": "Eredivisie",
+    "PPL": "Primeira_Liga",
+    "CL": "Champions_League",
+    "EL": "Europa_League",
+    "ELC": "Championship",
+}
+
 UA = {"User-Agent": "Mozilla/5.0 (compatible; ScommesseFree/2.0)"}
 CACHE_DIR = Path("cache/understat")
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -100,6 +121,19 @@ LEAGUE_TEAMS_DIR = CACHE_DIR / "leagues"  # cache elenco squadre per lega/stagio
 LEAGUE_TEAMS_DIR.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_XG_VALUE = 1.2
+
+# Tabella empirica di squadre "forti" (che tendono a segnare di più) per varie leghe
+# Usata per variare gli xG nel fallback quando non abbiamo dati Understat
+STRONG_TEAMS = {
+    "SA": ["Inter", "Milan", "Juventus", "Napoli", "Roma", "Lazio", "Atalanta"],
+    "PL": ["Manchester City", "Manchester United", "Liverpool", "Chelsea", "Arsenal", "Tottenham"],
+    "PD": ["Real Madrid", "Barcelona", "Atletico Madrid", "Sevilla"],
+    "BL1": ["Bayern München", "Borussia Dortmund", "RB Leipzig"],
+    "FL1": ["Paris Saint-Germain", "Olympique Lyonnais", "Olympique Marseille"],
+    "DED": ["Ajax", "Feyenoord", "PSV"],
+    "PPL": ["Benfica", "Porto", "Sporting"],
+    "ELC": ["Leicester City", "Leeds United"],
+}
 
 # Dizionario "best-effort" lat/lon stadi (aggiungi nel tempo i club che ti interessano)
 STADIUMS = {
@@ -149,25 +183,6 @@ SEED_UNDERSTAT_NAME_MAP = {
 }
 
 
-# -------------- UTIL STRINGA & STAGIONE --------------
-def _ascii_clean(s: str) -> str:
-    return "".join(
-        c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c)
-    )
-
-
-def _drop_suffixes(s: str) -> str:
-    for suf in (" FC", " Cf", " CF", " FK", " SK", " SFP", " SAD", " AC", " BC"):
-        if s.endswith(suf):
-            s = s[: -len(suf)]
-    return s
-
-
-def season_from_date(date_iso: str) -> int:
-    dt = datetime.fromisoformat(date_iso[:10])
-    return dt.year if dt.month >= 7 else dt.year - 1
-
-
 # -------------- CACHE HTML --------------
 def _cache_path(team: str, date_iso: str) -> Path:
     season = season_from_date(date_iso)
@@ -190,25 +205,17 @@ def _write_cache(path: Path, text: str):
     except Exception:
         pass
 
-
-# -------------- TEAM MAP (AUTO-LEARNING) --------------
-def load_team_map() -> Dict[str, str]:
-    mp = SEED_UNDERSTAT_NAME_MAP.copy()
-    if TEAM_MAP_FILE.exists():
-        try:
-            mp.update(json.loads(TEAM_MAP_FILE.read_text(encoding="utf-8")))
-        except Exception:
-            pass
-    return mp
+# -------------- UTIL STRINGA & STAGIONE --------------
+def _ascii_clean(s: str) -> str:
+    return "".join(
+        c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c)
+    )
 
 
-def save_team_map(mp: Dict[str, str]):
-    try:
-        TEAM_MAP_FILE.write_text(
-            json.dumps(mp, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-    except Exception:
-        pass
+def season_from_date(date_iso: str) -> int:
+    dt = datetime.fromisoformat(date_iso[:10])
+    return dt.year if dt.month >= 7 else dt.year - 1
+
 
 def _to_float(val) -> float:
     try:
@@ -230,17 +237,16 @@ def _implied_prob(odds) -> float:
 def market_based_expected_goals(
     fixture_row: pd.Series, default_total: float = 2.6
 ) -> Optional[Tuple[float, float]]:
-    """
-    Stima lambda home/away da quote 1X2 + linea goal quando Understat non è disponibile.
-    Usa approssimazioni morbide ma coerenti (somma = total expected goals).
-    Ritorna None se le quote non sono utilizzabili.
-    """
+    """Stima xG da quote 1X2 + linea goal (fallback)."""
     line_candidates = [
         fixture_row.get("line_ou"),
         fixture_row.get("line_ou_main"),
         fixture_row.get("line_ou25"),
     ]
-    line = next(( _to_float(v) for v in line_candidates if not math.isnan(_to_float(v))), math.nan)
+    line = next(
+        (_to_float(v) for v in line_candidates if not math.isnan(_to_float(v))),
+        math.nan,
+    )
 
     odds_over = _implied_prob(
         fixture_row.get("odds_over")
@@ -257,7 +263,7 @@ def market_based_expected_goals(
         total_goals = line
         if not math.isnan(odds_over) and not math.isnan(odds_under):
             over_share = odds_over / (odds_over + odds_under)
-            #, adjust +/- 0.8 goals depending on over bias
+            # adjust +/- 0.8 goals depending on over bias
             total_goals = line + (over_share - 0.5) * 0.8
     else:
         total_goals = default_total
@@ -294,6 +300,46 @@ def market_based_expected_goals(
     return (round(lambda_home, 3), round(lambda_away, 3))
 
 
+def is_strong_team(team_name: str, league_code: str) -> bool:
+    """Controlla se una squadra è in lista "forti" per la lega."""
+    if league_code not in STRONG_TEAMS:
+        return False
+    strong_list = STRONG_TEAMS[league_code]
+    # Fuzzy match per gestire variazioni di nome
+    best_ratio = max(
+        [fuzz.ratio(team_name.upper(), strong.upper()) for strong in strong_list],
+        default=0
+    )
+    return best_ratio >= 70  # Soglia di similarità
+
+
+# -------------- TEAM MAPPING (DA DATABASE) --------------
+def get_team_mapping(team_api: str, league_code: str, db: Session) -> Optional[str]:
+    """
+    Tenta di trovare il nome Understat per una squadra dal mapping salvato nel DB.
+    Se non trovato, ritorna None (fallback a SEED_UNDERSTAT_NAME_MAP).
+    """
+    mapping = db.query(TeamMapping).filter(
+        TeamMapping.source_name == team_api,
+        TeamMapping.league_code == league_code
+    ).first()
+    return mapping.understat_name if mapping else None
+
+
+def get_fbref_mapping_from_db(
+    source_name: str, league_code: str, db: Session
+) -> Optional[Tuple[str, str]]:
+    """Recupera l'ID e il nome FBRef mappati dal database."""
+    mapping = (
+        db.query(TeamMapping)
+        .filter_by(source_name=source_name, league_code=league_code)
+        .first()
+    )
+    if mapping and mapping.fbref_id and mapping.fbref_name:
+        return mapping.fbref_id, mapping.fbref_name
+    return None
+
+
 # -------------- UNDERSTAT: URL & PARSER --------------
 def understat_team_url(team: str, date_iso: str) -> str:
     season = season_from_date(date_iso)
@@ -301,24 +347,123 @@ def understat_team_url(team: str, date_iso: str) -> str:
 
 
 def _extract_json_from_understat(html: str, varname: str) -> Optional[list]:
-    m = re.search(
-        rf"var\s+{re.escape(varname)}\s*=\s*JSON\.parse\('(.+?)'\)", html, flags=re.S
+    """
+    Estrae un oggetto JSON da una variabile JavaScript all'interno di un tag <script> nel codice HTML.
+    È progettato per essere robusto a cambiamenti minori nel formato della pagina.
+    """
+    # Cerca il tag <script> che contiene la variabile per restringere la ricerca
+    script_tag_pattern = re.compile(rf"<script>.*?\b{re.escape(varname)}\b.*?</script>", re.DOTALL)
+    match = script_tag_pattern.search(html)
+    
+    if not match:
+        return None
+        
+    script_content = match.group(0)
+
+    # Cerca il pattern di assegnazione della variabile. Questo gestisce:
+    # 1. var/let/const nome_variabile = JSON.parse('stringa_json_escapata')
+    # 2. var/let/const nome_variabile = [{...}] o {{...}} (JSON letterale)
+    # Il pattern per la stringa escapata (?:\\.|[^'])* è robusto e gestisce i caratteri escapati.
+    data_pattern = re.search(
+        rf"\b{re.escape(varname)}\s*=\s*(?:JSON\.parse\(\s*'((?:\\.|[^'])*)'\s*\)|(\[.*?\]|\{{.*?\}}))\s*;?",
+        script_content,
+        re.DOTALL
     )
-    if m:
-        js_escaped = m.group(1)
+
+    if not data_pattern:
+        return None
+
+    # Il pattern ha due gruppi di cattura. Solo uno sarà popolato.
+    escaped_json_str = data_pattern.group(1)
+    literal_json_str = data_pattern.group(2)
+
+    json_to_parse = None
+    if escaped_json_str:
         try:
-            js_unescaped = js_escaped.encode("utf-8").decode("unicode_escape")
-            return json.loads(js_unescaped)
+            # La stringa è escapata per JavaScript. `unicode_escape` è un buon metodo per decodificarla.
+            json_to_parse = bytes(escaped_json_str, "utf-8").decode("unicode_escape")
         except Exception:
-            return None
-    m2 = re.search(rf"var\s+{re.escape(varname)}\s*=\s*(\[[^\]]+\])", html, flags=re.S)
-    if m2:
+            return None # Errore nella decodifica della stringa
+    elif literal_json_str:
+        json_to_parse = literal_json_str
+
+    if json_to_parse:
         try:
-            return json.loads(m2.group(1))
-        except Exception:
-            return None
+            return json.loads(json_to_parse)
+        except json.JSONDecodeError:
+            return None # Parsing fallito
+            
     return None
 
+
+# -------------- FBRef: FALLBACK SOURCE --------------
+FBRef_COMP_MAP = {
+    "SA": (11, "Serie-A"),
+    "PL": (9, "Premier-League"),
+    "PD": (12, "La-Liga"),
+    "BL1": (20, "Bundesliga"),
+    "FL1": (13, "Ligue-1"),
+}
+
+def fetch_xg_from_fbref_team_page(fbref_id: str, fbref_name: str, date_iso: str) -> Optional[Tuple[float, float]]:
+    """
+    Scarica xG/xGA per 90' da una pagina squadra di FBRef usando il suo ID univoco.
+    """
+    season = season_from_date(date_iso)
+    season_str = f"{season}-{season+1}"
+    
+    # FBRef usa nomi "sanitized" negli URL, ma l'ID è la chiave robusta.
+    # Il nome è utile per rendere l'URL più leggibile.
+    safe_name = fbref_name.replace(" ", "-")
+    
+    # L'URL per "All Competitions" è più completo.
+    url = f"https://fbref.com/en/squads/{fbref_id}/{season_str}/all_comps/{safe_name}-Stats-All-Competitions"
+
+    try:
+        r = requests.get(url, headers=UA, timeout=20)
+        # Se la pagina "all_comps" non esiste (comune per squadre di leghe minori), prova quella della lega.
+        if r.status_code == 404:
+            url = f"https://fbref.com/en/squads/{fbref_id}/{season_str}/{safe_name}-Stats"
+            r = requests.get(url, headers=UA, timeout=20)
+
+        r.raise_for_status()
+        
+        # FBRef usa commenti HTML per nascondere le tabelle a scraper semplici.
+        html_content = r.text.replace("<!--", "").replace("-->", "")
+        
+        # Cerca la tabella "Squad Standard Stats" tramite il suo ID HTML.
+        tables = pd.read_html(io.StringIO(html_content), attrs={"id": "stats_standard_squads"})
+        
+        if not tables:
+            return None
+            
+        stats_df = tables[0]
+        # Pulisci i multi-header di pandas
+        stats_df.columns = ['_'.join(col).strip() for col in stats_df.columns.values]
+        
+        # Cerca la riga di riepilogo "Squad Total"
+        total_row = stats_df[stats_df.iloc[:, 0] == 'Squad Total']
+        if total_row.empty:
+            return None
+            
+        # Trova le colonne xG e xGA "Per 90 Minutes"
+        xg_col = next((c for c in total_row.columns if 'Per_90_Minutes_xG' in c), None)
+        xga_col = next((c for c in total_row.columns if 'Per_90_Minutes_xGA' in c), None)
+        
+        if not xg_col or not xga_col:
+            return None
+            
+        xg_for = pd.to_numeric(total_row.iloc[0][xg_col], errors='coerce')
+        xg_against = pd.to_numeric(total_row.iloc[0][xga_col], errors='coerce')
+        
+        if pd.isna(xg_for) or pd.isna(xg_against):
+            return None
+            
+        return (xg_for, xg_against)
+
+    except Exception as e:
+        print(f"[FBRef-Team-ERR] Fallito recupero per {fbref_name} ({fbref_id}): {e}")
+        return None
 
 # -------------- UNDERSTAT: LEAGUE TEAMS (REFRESH) --------------
 def league_teams_path(code: str, date_iso: str) -> Path:
@@ -373,138 +518,16 @@ def fetch_league_teams(code: str, date_iso: str, delay: float = 0.0) -> List[str
 
 
 # -------------- MATCHING NOMI --------------
-def candidate_names(api_name: str) -> List[str]:
-    base = re.sub(r"\s+", " ", api_name).strip()
-    cand = [base]
-    no_suf = _drop_suffixes(base)
-    if no_suf not in cand:
-        cand.append(no_suf)
-    ascii_base = _ascii_clean(base)
-    if ascii_base not in cand:
-        cand.append(ascii_base)
-    ascii_no_suf = _ascii_clean(no_suf)
-    if ascii_no_suf not in cand:
-        cand.append(ascii_no_suf)
-
-    repl = {
-        "København": "Kobenhavn",
-        "München": "Munich",
-        "Atlético": "Atletico",
-        "Athlético": "Atletico",
-        "São": "Sao",
-        "İstanbul": "Istanbul",
-        "Ş": "S",
-        "Ğ": "G",
-        "ğ": "g",
-        "Á": "A",
-        "á": "a",
-        "À": "A",
-        "à": "a",
-        "Ä": "A",
-        "ä": "a",
-        "Ó": "O",
-        "ó": "o",
-        "Ö": "O",
-        "ö": "o",
-        "Ú": "U",
-        "ú": "u",
-        "Ü": "U",
-        "ü": "u",
-        "Ć": "C",
-        "ć": "c",
-        "Č": "C",
-        "č": "c",
-        "ß": "ss",
-    }
-    tmp = base
-    for k, v in repl.items():
-        tmp = tmp.replace(k, v)
-    tmp = re.sub(r"\s+", " ", tmp).strip()
-    if tmp not in cand:
-        cand.append(tmp)
-    return cand
-
-
-def resolve_understat_name(
-    api_name: str,
-    date_iso: str,
-    comp_code: Optional[str],
-    team_map: Dict[str, str],
-    learn: bool,
-    delay: float,
-    league_teams_cache: Dict[str, List[str]],
+def get_understat_name_from_db(
+    source_name: str, league_code: str, db: Session
 ) -> Optional[str]:
-    """Trova un nome valido per Understat:
-    1) se già mappato -> ritorna;
-    2) prova varianti dirette (request + parse);
-    3) se abbiamo elenco lega -> fuzzy match con threshold alto;
-    4) se trova, salva in team_map (se learn=True).
-    """
-    # 1) mapping già noto
-    if api_name in team_map:
-        return team_map[api_name]
-
-    # 2) prova varianti dirette
-    for cand in candidate_names(api_name):
-        url = understat_team_url(cand, date_iso)
-        cache_p = _cache_path(cand, date_iso)
-        html = _read_cache(cache_p)
-        if html is None:
-            try:
-                resp = requests.get(url, headers=UA, timeout=30)
-                if resp.status_code == 404:
-                    continue
-                resp.raise_for_status()
-                html = resp.text
-                _write_cache(cache_p, html)
-                if delay > 0:
-                    time.sleep(delay)
-            except Exception:
-                continue
-        matches = _extract_json_from_understat(html, "matchesData")
-        if matches:
-            if learn:
-                team_map[api_name] = cand
-                save_team_map(team_map)
-            return cand
-
-    # 3) fuzzy match su elenco lega se disponibile
-    if comp_code:
-        if comp_code not in league_teams_cache:
-            league_teams_cache[comp_code] = fetch_league_teams(
-                comp_code, date_iso, delay=delay
-            )
-        league_names = league_teams_cache.get(comp_code, [])
-        if league_names:
-            # prova fuzzy
-            # alza soglia per ridurre errori (es. 85)
-            best = process.extractOne(api_name, league_names, scorer=fuzz.WRatio)
-            if best and best[1] >= 85:
-                cand = best[0]
-                # verifica che la pagina di squadra esista
-                url = understat_team_url(cand, date_iso)
-                cache_p = _cache_path(cand, date_iso)
-                html = _read_cache(cache_p)
-                if html is None:
-                    try:
-                        resp = requests.get(url, headers=UA, timeout=30)
-                        resp.raise_for_status()
-                        html = resp.text
-                        _write_cache(cache_p, html)
-                        if delay > 0:
-                            time.sleep(delay)
-                    except Exception:
-                        html = None
-                if html:
-                    ok = _extract_json_from_understat(html, "matchesData")
-                    if ok:
-                        if learn:
-                            team_map[api_name] = cand
-                            save_team_map(team_map)
-                        return cand
-
-    # nulla trovato
-    return None
+    """Recupera il nome Understat mappato dal database."""
+    mapping = (
+        db.query(TeamMapping)
+        .filter_by(source_name=source_name, league_code=league_code)
+        .first()
+    )
+    return mapping.understat_name if mapping else None
 
 
 # -------------- xG & REST DAYS --------------
@@ -577,8 +600,20 @@ def compute_xg_and_rest(
     rows = rows[: max(1, n)]
     if not rows:
         return (DEFAULT_XG_VALUE, DEFAULT_XG_VALUE, last_dt)
-    xg_avg = sum(r[1] for r in rows) / len(rows)
-    xga_avg = sum(r[2] for r in rows) / len(rows)
+
+    # Calcola una media pesata: le partite più recenti hanno più peso.
+    # Questo crea una feature di "forma" più reattiva.
+    weights = list(range(len(rows), 0, -1))
+    total_weight = sum(weights)
+
+    if total_weight > 0:
+        xg_avg = sum(r[1] * w for r, w in zip(rows, weights)) / total_weight
+        xga_avg = sum(r[2] * w for r, w in zip(rows, weights)) / total_weight
+    else:
+        # Fallback a media semplice in caso di problemi
+        xg_avg = sum(r[1] for r in rows) / len(rows)
+        xga_avg = sum(r[2] for r in rows) / len(rows)
+
     return (round(xg_avg, 3), round(xga_avg, 3), last_dt)
 
 
@@ -655,97 +690,70 @@ def main():
         default=0,
         help="1=scarica elenco squadre delle leghe specificate",
     )
-    ap.add_argument("--fixtures", default="fixtures.csv")
-    ap.add_argument("--features", default="features.csv")
     args = ap.parse_args()
 
     use_cache = bool(args.cache)
     learn_map = bool(args.learn_map)
 
-    # Carica fixtures
+    print(f"[FEATURE-POP] Avvio population features per {args.date}")
+    sys.stdout.flush()
+
+    # --- CARICA DATI DAL DATABASE ---
+    db: Session = SessionLocal()
     try:
-        df_fix = pd.read_csv(args.fixtures)
+        query = (
+            db.query(Fixture)
+            .options(joinedload(Fixture.odds))
+            .filter(Fixture.date == args.date)
+        )
+        if args.comps:
+            comps = [c.strip().upper() for c in args.comps.split(",") if c.strip()]
+            query = query.filter(Fixture.league_code.in_(comps))
+        else:
+            comps = []
+        
+        fixtures_to_process = query.all()
+        if not fixtures_to_process:
+            print(f"[INFO] Nessun fixture trovato nel DB il {args.date} con i filtri richiesti.")
+            sys.exit(0)
+        print(f"[DB] Trovate {len(fixtures_to_process)} partite nel DB da processare.")
+        sys.stdout.flush()
+
     except Exception as e:
-        print(f"[ERR] Impossibile leggere {args.fixtures}: {e}")
+        print(f"[DB-ERR] Impossibile caricare le partite dal database: {e}")
         sys.exit(1)
 
-    df_fix = df_fix[df_fix["date"] == args.date].copy()
-    if args.comps:
-        comps = [c.strip().upper() for c in args.comps.split(",") if c.strip()]
-        # accetta sia il nome lega (es. "UEFA Europa League") sia il codice (es. "EL")
-        names_ok = {COMP_MAP.get(c, c) for c in comps}
-        codes_ok = set(comps)
-        mask = pd.Series(True, index=df_fix.index)
-        if "league" in df_fix.columns:
-            mask = mask & (df_fix["league"].isin(names_ok) | df_fix["league"].isin(codes_ok))
-        if "league_code" in df_fix.columns:
-            mask = mask & df_fix["league_code"].astype(str).str.upper().isin(codes_ok)
-        df_fix = df_fix[mask]
-    else:
-        comps = []
-    if df_fix.empty:
-        print(f"[INFO] Nessun fixture trovato il {args.date} con i filtri richiesti.")
-        sys.exit(0)
+    # --- CICLO PRINCIPALE ---
+    for i, fixture in enumerate(fixtures_to_process, 1):
+        mid = fixture.match_id
+        date_str = fixture.date.isoformat()
+        time_local = (fixture.time_local or "12:00").strip()
+        league = fixture.league
+        home_api = fixture.home
+        away_api = fixture.away
+        comp_code = fixture.league_code
 
-    # Carica features esistenti
-    try:
-        df_fea = pd.read_csv(args.features)
-    except Exception:
-        df_fea = pd.DataFrame(columns=FEA_COLS)
-    existing = {
-        r["match_id"]: r for _, r in df_fea.fillna("").to_dict(orient="index").items()
-    }
+        print(f"[{i}/{len(fixtures_to_process)}] Processamento {mid}: {home_api} vs {away_api}")
+        sys.stdout.flush()
 
-    # Carica/salva team_map
-    team_map = load_team_map()
+        # Carica (o crea) l'oggetto Feature per questo match
+        feature_obj = db.query(Feature).filter(Feature.match_id == mid).first()
+        if feature_obj is None:
+            feature_obj = Feature(match_id=mid)
 
-    # (Opzionale) refresh elenco squadre leghe richieste
-    league_teams_cache: Dict[str, List[str]] = {}
-    if args.refresh_leagues and comps:
-        for code in comps:
-            league_teams_cache[code] = fetch_league_teams(
-                code, args.date, delay=args.delay
-            )
-        print(
-            f"[INFO] Aggiornati elenchi leghe: { {c: len(league_teams_cache.get(c, [])) for c in comps} }"
-        )
-
-    updated_rows = []
-
-    for _, row in df_fix.iterrows():
-        mid = row.get("match_id", "")
-        date_str = row.get("date", "")
-        time_local = (row.get("time_local", "") or "12:00").strip()
-        league = row.get("league", "")
-        home_api = row.get("home", "")
-        away_api = row.get("away", "")
-
-        # Prova a dedurre il comp_code inverso dal nome league (se presente in COMP_MAP)
-        comp_code = None
-        for k, v in COMP_MAP.items():
-            if v == league:
-                comp_code = k
-                break
+        # Crea un oggetto simile a una riga di pandas per la funzione di fallback
+        row_for_fallback = {
+            "odds_1": fixture.odds.odds_1 if fixture.odds else None,
+            "odds_x": fixture.odds.odds_x if fixture.odds else None,
+            "odds_2": fixture.odds.odds_2 if fixture.odds else None,
+            "odds_ou25_over": fixture.odds.odds_ou25_over if fixture.odds else None,
+            "odds_ou25_under": fixture.odds.odds_ou25_under if fixture.odds else None,
+            "line_ou": fixture.odds.line_ou if fixture.odds else "2.5",
+        }
 
         # Risolvi nomi Understat (auto-learning + fuzzy)
-        home_us = resolve_understat_name(
-            home_api,
-            date_str,
-            comp_code,
-            team_map,
-            learn_map,
-            args.delay,
-            league_teams_cache,
-        )
-        away_us = resolve_understat_name(
-            away_api,
-            date_str,
-            comp_code,
-            team_map,
-            learn_map,
-            args.delay,
-            league_teams_cache,
-        )
+        home_us = get_understat_name_from_db(home_api, comp_code, db)
+        away_us = get_understat_name_from_db(away_api, comp_code, db)
 
         # xG medie ultime N (Understat) + last match date (per rest-days)
         hxg_f, hxg_a, h_last_dt = compute_xg_and_rest(
@@ -755,34 +763,98 @@ def main():
             away_us, date_str, args.n_recent, args.delay
         )
 
+        # --- GESTIONE FALLBACK A PIÙ LIVELLI ---
         fallback_msgs: List[str] = []
         need_home_fallback = (home_us is None) or (h_last_dt is None)
         need_away_fallback = (away_us is None) or (a_last_dt is None)
+        # Traccia origine dati xG
+        source_home = "understat" if (home_us and h_last_dt) else None
+        source_away = "understat" if (away_us and a_last_dt) else None
+
+        # 1. TENTATIVO DI FALLBACK SU FBREF (se Understat fallisce)
+        if need_home_fallback:
+            fbref_map_home = get_fbref_mapping_from_db(home_api, comp_code, db)
+            if fbref_map_home:
+                fbref_id, fbref_name = fbref_map_home
+                fbref_xg = fetch_xg_from_fbref_team_page(fbref_id, fbref_name, date_str)
+                if fbref_xg:
+                    hxg_f, hxg_a = fbref_xg
+                    h_last_dt = datetime.fromisoformat(date_str)  # Usa la data della partita
+                    need_home_fallback = False
+                    source_home = "fbref"
+                    fallback_msgs.append(f"[FALLBACK] {mid}: xG home stimati da FBRef.")
+
+        if need_away_fallback:
+            fbref_map_away = get_fbref_mapping_from_db(away_api, comp_code, db)
+            if fbref_map_away:
+                fbref_id, fbref_name = fbref_map_away
+                fbref_xg = fetch_xg_from_fbref_team_page(fbref_id, fbref_name, date_str)
+                if fbref_xg:
+                    axg_f, axg_a = fbref_xg
+                    a_last_dt = datetime.fromisoformat(date_str)
+                    need_away_fallback = False
+                    source_away = "fbref"
+                    fallback_msgs.append(f"[FALLBACK] {mid}: xG away stimati da FBRef.")
+        
+        # 2. TENTATIVO DI FALLBACK SU QUOTE (se ancora necessario)
         fallback_pair: Optional[Tuple[float, float]] = None
         if need_home_fallback or need_away_fallback:
-            fallback_pair = market_based_expected_goals(row)
+            fallback_pair = market_based_expected_goals(pd.Series(row_for_fallback))
             if fallback_pair:
                 if need_home_fallback:
                     hxg_f, hxg_a = fallback_pair
-                    h_last_dt = None
+                    h_last_dt = None # Nessuna data, quindi rest_days sarà vuoto
                     fallback_msgs.append(
-                        f"[FALLBACK] {mid}: xG home stimati da quote (Understat assente o non disponibile)."
+                        f"[FALLBACK] {mid}: xG home stimati da quote (Understat/FBRef assenti)."
                     )
+                    source_home = "odds"
                 if need_away_fallback:
                     axg_f, axg_a = fallback_pair[1], fallback_pair[0]
                     a_last_dt = None
                     fallback_msgs.append(
-                        f"[FALLBACK] {mid}: xG away stimati da quote (Understat assente o non disponibile)."
+                        f"[FALLBACK] {mid}: xG away stimati da quote (Understat/FBRef assenti)."
                     )
+                    source_away = "odds"
             else:
+                # 3. FALLBACK FINALE: Stima basata su profili di squadra (Forte/Medio) con variabilità.
+                # Questo riduce la ripetitività delle previsioni quando mancano dati primari.
+                home_is_strong = is_strong_team(home_api, comp_code)
+                away_is_strong = is_strong_team(away_api, comp_code)
+
+                import random
+
+                def get_profile(is_strong: bool) -> Tuple[float, float]:
+                    """
+                    Restituisce un profilo (xG_fatti, xG_subiti) con variabilità.
+                    - FORTE: attacco alto (1.7-2.1), difesa solida (0.9-1.2)
+                    - MEDIA: attacco medio (1.2-1.5), difesa media (1.3-1.6)
+                    """
+                    if is_strong:
+                        xg_for = random.uniform(1.7, 2.1)
+                        xg_against = random.uniform(0.9, 1.2)
+                    else:
+                        xg_for = random.uniform(1.2, 1.5)
+                        xg_against = random.uniform(1.3, 1.6)
+                    return (round(xg_for, 2), round(xg_against, 2))
+
                 if need_home_fallback:
+                    hxg_f, hxg_a = get_profile(home_is_strong)
+                    h_last_dt = None
                     fallback_msgs.append(
-                        f"[WARN] {mid}: impossibile stimare xG home da Understat/quote, uso default {DEFAULT_XG_VALUE}."
+                        f"[FALLBACK-L2] {mid}: xG home stimati ({hxg_f:.2f}|{hxg_a:.2f}) - profilo {'FORTE' if home_is_strong else 'MEDIO'}."
                     )
+                    source_home = "fallback"
+
                 if need_away_fallback:
+                    # Per la squadra in trasferta, l'attacco è leggermente penalizzato
+                    axg_f_base, axg_a_base = get_profile(away_is_strong)
+                    axg_f = round(axg_f_base * 0.95, 2) # Penalità trasferta
+                    axg_a = axg_a_base
+                    a_last_dt = None
                     fallback_msgs.append(
-                        f"[WARN] {mid}: impossibile stimare xG away da Understat/quote, uso default {DEFAULT_XG_VALUE}."
+                        f"[FALLBACK-L2] {mid}: xG away stimati ({axg_f:.2f}|{axg_a:.2f}) - profilo {'FORTE' if away_is_strong else 'MEDIO'}."
                     )
+                    source_away = "fallback"
 
         def _rest_days(last_dt: Optional[datetime], game_date: str) -> str:
             if not last_dt:
@@ -795,15 +867,6 @@ def main():
 
         rest_h = _rest_days(h_last_dt, date_str)
         rest_a = _rest_days(a_last_dt, date_str)
-        if need_home_fallback:
-            rest_h = ""
-        if need_away_fallback:
-            rest_a = ""
-
-        injuries_h = existing.get(mid, {}).get("injuries_key_home", "")
-        injuries_a = existing.get(mid, {}).get("injuries_key_away", "")
-        style_h = existing.get(mid, {}).get("style_ppda_home", "")
-        style_a = existing.get(mid, {}).get("style_ppda_away", "")
 
         e_home = europe_flag_from_league(league)
         e_away = e_home
@@ -817,38 +880,54 @@ def main():
         else:
             meteo = "0"
 
-        travel_km = existing.get(mid, {}).get("travel_km_away", "")
+        # Popola l'oggetto Feature (i campi non calcolati come 'injuries' vengono preservati)
+        feature_obj.xg_for_home = hxg_f
+        feature_obj.xg_against_home = hxg_a
+        feature_obj.xg_for_away = axg_f
+        feature_obj.xg_against_away = axg_a
+        # Salva origine e confidenza: assegna un valore numerico di confidenza
+        # regole semplici: understat=90, fbref=75, odds=60, fallback=20
+        feature_obj.xg_source_home = source_home
+        feature_obj.xg_source_away = source_away
+        try:
+            def _src_conf(s):
+                if s == 'understat':
+                    return 90.0
+                if s == 'fbref': # Mantenuto per compatibilità futura
+                    return 75.0
+                if s == 'odds':
+                    return 60.0
+                if s == 'fallback':
+                    return 20.0
+                return 0.0
 
-        rec = {
-            "match_id": mid,
-            "xG_for_5_home": hxg_f,
-            "xG_against_5_home": hxg_a,
-            "xG_for_5_away": axg_f,
-            "xG_against_5_away": axg_a,
-            "rest_days_home": rest_h,
-            "rest_days_away": rest_a,
-            "injuries_key_home": injuries_h,
-            "injuries_key_away": injuries_a,
-            "derby_flag": existing.get(mid, {}).get("derby_flag", "0"),
-            "europe_flag_home": e_home,
-            "europe_flag_away": e_away,
-            "meteo_flag": meteo,
-            "style_ppda_home": style_h,
-            "style_ppda_away": style_a,
-            "travel_km_away": travel_km,
-        }
+            ch = _src_conf(source_home)
+            ca = _src_conf(source_away)
+            # Media aritmetica: sempre numerica, mai None (se entrambi 0, assegna 0)
+            feature_obj.xg_confidence = round(((ch + ca) / 2.0), 1)
+        except Exception:
+            feature_obj.xg_confidence = None
+        feature_obj.rest_days_home = int(rest_h) if rest_h else None
+        feature_obj.rest_days_away = int(rest_a) if rest_a else None
+        feature_obj.europe_flag_home = int(e_home)
+        feature_obj.europe_flag_away = int(e_away)
+        feature_obj.meteo_flag = int(meteo)
+        
+        db.merge(feature_obj)
+
         if fallback_msgs:
             for msg in fallback_msgs:
                 print(msg)
-        updated_rows.append(rec)
 
-    df_new = pd.DataFrame(updated_rows, columns=FEA_COLS).drop_duplicates(
-        subset=["match_id"], keep="last"
-    )
-    df_old = df_fea[~df_fea["match_id"].isin(df_new["match_id"])]
-    df_out = pd.concat([df_old, df_new], ignore_index=True)
-    df_out.to_csv(args.features, index=False)
-    print(f"[OK] Aggiornate {len(df_new)} righe in {args.features}")
+    # --- SALVATAGGIO SU DATABASE ---
+    try:
+        db.commit()
+        print(f"\n[DB] Commit eseguito. {len(fixtures_to_process)} features inserite/aggiornate nel database.")
+    except Exception as e:
+        print(f"[DB-ERR] Errore durante il salvataggio delle features: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":

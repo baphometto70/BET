@@ -112,7 +112,7 @@ def main():
     for c in ("match_id", "time", "time_local"):
         if c not in fixN.columns:
             fixN[c] = ""
-
+    
     # Individua colonne di features (tutte tranne chiavi e duplicati)
     key_cols = {
         "match_id",
@@ -124,7 +124,13 @@ def main():
         "home",
         "away",
     }
-    fea_cols = [c for c in fea.columns if c not in key_cols]
+    # Explicitly define feature columns to match the model and DB
+    fea_cols = [
+        "xg_for_home", "xg_against_home", "xg_for_away", "xg_against_away",
+        "rest_days_home", "rest_days_away", "injuries_key_home", "injuries_key_away",
+        "derby_flag", "europe_flag_home", "europe_flag_away", "meteo_flag",
+        "style_ppda_home", "style_ppda_away", "travel_km_away"
+    ]
 
     # Join sinistro: fixtures come master
     merged = fixN.merge(

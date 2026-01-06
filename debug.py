@@ -1,23 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from pathlib import Path
-
 import pandas as pd
 
+# Importa i componenti del database
+from database import SessionLocal
+from models import Fixture, Feature
+
 ROOT = Path(__file__).resolve().parent
-FIX = ROOT / "fixtures.csv"
-FEA = ROOT / "features.csv"
 OUT_DIR = ROOT / "data"
 OUT_DIR.mkdir(exist_ok=True)
 
 
 def main():
-    if not FIX.exists() or not FEA.exists():
-        print("[ERR] fixtures.csv o features.csv mancanti.")
-        return
+    db = SessionLocal()
+    try:
+        # Leggi i dati direttamente dal database
+        fix = pd.read_sql(db.query(Fixture).statement, db.bind)
+        fea = pd.read_sql(db.query(Feature).statement, db.bind)
+    finally:
+        db.close()
 
-    fix = pd.read_csv(FIX)
-    fea = pd.read_csv(FEA)
+    if fix.empty:
+        print("[WARN] La tabella 'fixtures' è vuota.")
 
     print(f"[INFO] fixtures: {len(fix)} righe, features: {len(fea)} righe")
 
@@ -47,15 +52,9 @@ def main():
     only_fix = fix.loc[~fix["match_id"].isin(fea["match_id"])]
     only_fea = fea.loc[~fea["match_id"].isin(fix["match_id"])]
 
-    (OUT_DIR / "_debug_only_fixtures.csv").write_text(
-        only_fix.to_csv(index=False), encoding="utf-8"
-    )
-    (OUT_DIR / "_debug_only_features.csv").write_text(
-        only_fea.to_csv(index=False), encoding="utf-8"
-    )
-    (OUT_DIR / "_debug_join_ok.csv").write_text(
-        merged.to_csv(index=False), encoding="utf-8"
-    )
+    only_fix.to_csv(OUT_DIR / "_debug_only_fixtures.csv", index=False)
+    only_fea.to_csv(OUT_DIR / "_debug_only_features.csv", index=False)
+    merged.to_csv(OUT_DIR / "_debug_join_ok.csv", index=False)
 
     print(f"[DIAG] Solo in fixtures: {len(only_fix)}  → data/_debug_only_fixtures.csv")
     print(f"[DIAG] Solo in features: {len(only_fea)} → data/_debug_only_features.csv")
