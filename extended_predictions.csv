@@ -1,28 +1,69 @@
 match_id,home,away,league,kickoff_time,market,market_name,probability,value,odds,kelly,confidence,category
-20260106_537001_SA,US Sassuolo Calcio,Juventus FC,Serie A,19:45,dc_x2,X2 (Draw or Away),0.7126,0.1625999999999999,,0.0,high,Doppia Chance
-20260106_537001_SA,US Sassuolo Calcio,Juventus FC,Serie A,19:45,gg,Goal/Goal (Both Score),0.5623628653934603,0.0123628653934602,,0.0,low,Goal/No Goal
-20260106_537001_SA,US Sassuolo Calcio,Juventus FC,Serie A,19:45,over_1.5,Over 1.5 goals,0.7780526177412355,0.2280526177412354,,0.0,high,Over/Under
-20260106_537001_SA,US Sassuolo Calcio,Juventus FC,Serie A,19:45,mg_2-5,Multigol 2-5 goals,0.7081116705248737,0.1581116705248736,,0.0,high,Multigol
-20260106_537001_SA,US Sassuolo Calcio,Juventus FC,Serie A,19:45,dc_1x,1X (Home or Draw),0.6496999999999999,0.0996999999999999,,0.0,medium,Doppia Chance
-20260106_537001_SA,US Sassuolo Calcio,Juventus FC,Serie A,19:45,under_3.5,Under 3.5 goals,0.6797487948034124,0.1297487948034124,,0.0,medium,Over/Under
-20260106_537001_SA,US Sassuolo Calcio,Juventus FC,Serie A,19:45,mg_1-3,Multigol 1-3 goals,0.6221232818447896,0.0721232818447895,,0.0,medium,Multigol
-20260106_537001_SA,US Sassuolo Calcio,Juventus FC,Serie A,19:45,dc_12,12 (Home or Away),0.6376999999999999,0.0876999999999998,,0.0,medium,Doppia Chance
-20260106_537001_SA,US Sassuolo Calcio,Juventus FC,Serie A,19:45,mg_2-4,Multigol 2-4 goals,0.6171332126593684,0.0671332126593683,,0.0,medium,Multigol
-20260106_537994_PL,West Ham United FC,Nottingham Forest FC,Premier League,20:00,dc_x2,X2 (Draw or Away),0.7068,0.1567999999999999,,0.0,high,Doppia Chance
-20260106_537994_PL,West Ham United FC,Nottingham Forest FC,Premier League,20:00,gg,Goal/Goal (Both Score),0.572227583479476,0.0222275834794759,,0.0,low,Goal/No Goal
-20260106_537994_PL,West Ham United FC,Nottingham Forest FC,Premier League,20:00,over_1.5,Over 1.5 goals,0.7731094611526252,0.2231094611526252,,0.0,high,Over/Under
-20260106_537994_PL,West Ham United FC,Nottingham Forest FC,Premier League,20:00,mg_2-5,Multigol 2-5 goals,0.7058323248933644,0.1558323248933644,,0.0,high,Multigol
-20260106_537994_PL,West Ham United FC,Nottingham Forest FC,Premier League,20:00,dc_1x,1X (Home or Draw),0.6557999999999999,0.1057999999999999,,0.0,medium,Doppia Chance
-20260106_537994_PL,West Ham United FC,Nottingham Forest FC,Premier League,20:00,under_3.5,Under 3.5 goals,0.6864055172323722,0.1364055172323721,,0.0,medium,Over/Under
-20260106_537994_PL,West Ham United FC,Nottingham Forest FC,Premier League,20:00,mg_1-3,Multigol 1-3 goals,0.6270619339281618,0.0770619339281617,,0.0,medium,Multigol
-20260106_537994_PL,West Ham United FC,Nottingham Forest FC,Premier League,20:00,dc_12,12 (Home or Away),0.6374,0.0873999999999999,,0.0,medium,Doppia Chance
-20260106_537994_PL,West Ham United FC,Nottingham Forest FC,Premier League,20:00,mg_2-4,Multigol 2-4 goals,0.6169062541091935,0.0669062541091934,,0.0,medium,Multigol
-20260106_537004_SA,US Lecce,AS Roma,Serie A,17:00,over_1.5,Over 1.5 goals,0.7908605444172004,0.2408605444172004,,0.0,high,Over/Under
-20260106_537004_SA,US Lecce,AS Roma,Serie A,17:00,dc_12,12 (Home or Away),0.7594159512432876,0.2094159512432876,,0.0,high,Doppia Chance
-20260106_537004_SA,US Lecce,AS Roma,Serie A,17:00,mg_2-5,Multigol 2-5 goals,0.713423434722926,0.16342343472292598,,0.0,high,Multigol
-20260106_537004_SA,US Lecce,AS Roma,Serie A,17:00,dc_x2,X2 (Draw or Away),0.7096308437711711,0.1596308437711711,,0.0,high,Doppia Chance
-20260106_537004_SA,US Lecce,AS Roma,Serie A,17:00,under_3.5,Under 3.5 goals,0.6618612264193602,0.11186122641936014,,0.0,medium,Over/Under
-20260106_537004_SA,US Lecce,AS Roma,Serie A,17:00,mg_2-4,Multigol 2-4 goals,0.6169950310044027,0.06699503100440263,,0.0,medium,Multigol
-20260106_537004_SA,US Lecce,AS Roma,Serie A,17:00,mg_1-3,Multigol 1-3 goals,0.6086604320008411,0.058660432000841034,,0.0,medium,Multigol
-20260106_537004_SA,US Lecce,AS Roma,Serie A,17:00,gg,Goal/Goal (Both Score),0.5826443575271286,0.032644357527128576,,0.0,low,Goal/No Goal
-20260106_537004_SA,US Lecce,AS Roma,Serie A,17:00,over_2.5,Over 2.5 goals,0.5620205591586188,0.012020559158618771,,0.0,low,Over/Under
+20260110_537006_SA,AS Roma,US Sassuolo Calcio,Serie A,17:00,dc_1x,1X (Home or Draw),1.0,0.44999999999999996,,0.0,high,Doppia Chance
+20260110_537006_SA,AS Roma,US Sassuolo Calcio,Serie A,17:00,gg,Goal/Goal (Both Score),0.5668026268537155,0.016802626853715474,,0.0,low,Goal/No Goal
+20260110_537006_SA,AS Roma,US Sassuolo Calcio,Serie A,17:00,over_1.5,Over 1.5 goals,0.7892617249403522,0.23926172494035214,,0.0,high,Over/Under
+20260110_537006_SA,AS Roma,US Sassuolo Calcio,Serie A,17:00,mg_2-5,Multigol 2-5 goals,0.7128197898771385,0.1628197898771384,,0.0,high,Multigol
+20260110_537006_SA,AS Roma,US Sassuolo Calcio,Serie A,17:00,combo_1x_gg,Combo: 1X_GG,0.5668026268537155,0.016802626853715474,,0.0,low,Combo
+20260110_537006_SA,AS Roma,US Sassuolo Calcio,Serie A,17:00,dc_x2,X2 (Draw or Away),0.6053,0.055299999999999905,,0.0,medium,Doppia Chance
+20260110_537006_SA,AS Roma,US Sassuolo Calcio,Serie A,17:00,under_3.5,Under 3.5 goals,0.664134067558676,0.11413406755867594,,0.0,medium,Over/Under
+20260110_537006_SA,AS Roma,US Sassuolo Calcio,Serie A,17:00,mg_2-4,Multigol 2-4 goals,0.6170702387943662,0.06707023879436613,,0.0,medium,Multigol
+20260110_537006_SA,AS Roma,US Sassuolo Calcio,Serie A,17:00,over_2.5,Over 2.5 goals,0.5596942350674265,0.009694235067426504,,0.0,low,Over/Under
+20260110_537006_SA,AS Roma,US Sassuolo Calcio,Serie A,17:00,mg_1-3,Multigol 1-3 goals,0.6103650163437642,0.06036501634376412,,0.0,medium,Multigol
+20260110_537007_SA,Atalanta BC,Torino FC,Serie A,19:45,dc_1x,1X (Home or Draw),1.0,0.44999999999999996,,0.0,high,Doppia Chance
+20260110_537007_SA,Atalanta BC,Torino FC,Serie A,19:45,over_1.5,Over 1.5 goals,0.767153105398555,0.21715310539855492,,0.0,high,Over/Under
+20260110_537007_SA,Atalanta BC,Torino FC,Serie A,19:45,mg_2-5,Multigol 2-5 goals,0.7029719956685566,0.15297199566855657,,0.0,high,Multigol
+20260110_537007_SA,Atalanta BC,Torino FC,Serie A,19:45,dc_x2,X2 (Draw or Away),0.6053,0.055299999999999905,,0.0,medium,Doppia Chance
+20260110_537007_SA,Atalanta BC,Torino FC,Serie A,19:45,under_3.5,Under 3.5 goals,0.6942219553439458,0.14422195534394577,,0.0,medium,Over/Under
+20260110_537007_SA,Atalanta BC,Torino FC,Serie A,19:45,mg_1-3,Multigol 1-3 goals,0.6327402475653514,0.08274024756535137,,0.0,medium,Multigol
+20260110_537007_SA,Atalanta BC,Torino FC,Serie A,19:45,mg_2-4,Multigol 2-4 goals,0.616443696766927,0.06644369676692696,,0.0,medium,Multigol
+20260110_544393_PD,Girona FC,CA Osasuna,Primera Division,17:30,dc_1x,1X (Home or Draw),1.0,0.44999999999999996,,0.0,high,Doppia Chance
+20260110_544393_PD,Girona FC,CA Osasuna,Primera Division,17:30,over_1.5,Over 1.5 goals,0.7448959516073663,0.19489595160736628,,0.0,high,Over/Under
+20260110_544393_PD,Girona FC,CA Osasuna,Primera Division,17:30,mg_2-5,Multigol 2-5 goals,0.6909574166606756,0.14095741666067552,,0.0,medium,Multigol
+20260110_544393_PD,Girona FC,CA Osasuna,Primera Division,17:30,dc_x2,X2 (Draw or Away),0.6053,0.055299999999999905,,0.0,medium,Doppia Chance
+20260110_544393_PD,Girona FC,CA Osasuna,Primera Division,17:30,under_3.5,Under 3.5 goals,0.721815327040952,0.17181532704095193,,0.0,high,Over/Under
+20260110_544393_PD,Girona FC,CA Osasuna,Primera Division,17:30,mg_1-3,Multigol 1-3 goals,0.6521935558144804,0.10219355581448031,,0.0,medium,Multigol
+20260110_544393_PD,Girona FC,CA Osasuna,Primera Division,17:30,mg_2-4,Multigol 2-4 goals,0.6129905598044548,0.06299055980445478,,0.0,medium,Multigol
+20260110_544398_PD,Valencia CF,Elche CF,Primera Division,20:00,dc_1x,1X (Home or Draw),1.0,0.44999999999999996,,0.0,high,Doppia Chance
+20260110_544398_PD,Valencia CF,Elche CF,Primera Division,20:00,gg,Goal/Goal (Both Score),0.5614514288276563,0.011451428827656263,,0.0,low,Goal/No Goal
+20260110_544398_PD,Valencia CF,Elche CF,Primera Division,20:00,over_1.5,Over 1.5 goals,0.7645978901388196,0.21459789013881958,,0.0,high,Over/Under
+20260110_544398_PD,Valencia CF,Elche CF,Primera Division,20:00,mg_2-5,Multigol 2-5 goals,0.7016793349777323,0.15167933497773223,,0.0,high,Multigol
+20260110_544398_PD,Valencia CF,Elche CF,Primera Division,20:00,combo_1x_gg,Combo: 1X_GG,0.5614514288276563,0.011451428827656263,,0.0,low,Combo
+20260110_544398_PD,Valencia CF,Elche CF,Primera Division,20:00,dc_x2,X2 (Draw or Away),0.6053,0.055299999999999905,,0.0,medium,Doppia Chance
+20260110_544398_PD,Valencia CF,Elche CF,Primera Division,20:00,under_3.5,Under 3.5 goals,0.6975271760845936,0.14752717608459354,,0.0,medium,Over/Under
+20260110_544398_PD,Valencia CF,Elche CF,Primera Division,20:00,mg_1-3,Multigol 1-3 goals,0.635144864037257,0.08514486403725696,,0.0,medium,Multigol
+20260110_544398_PD,Valencia CF,Elche CF,Primera Division,20:00,mg_2-4,Multigol 2-4 goals,0.6161792583483774,0.06617925834837735,,0.0,medium,Multigol
+20260110_540542_BL1,Bayer 04 Leverkusen,VfB Stuttgart,Bundesliga,17:30,dc_1x,1X (Home or Draw),1.0,0.44999999999999996,,0.0,high,Doppia Chance
+20260110_540542_BL1,Bayer 04 Leverkusen,VfB Stuttgart,Bundesliga,17:30,gg,Goal/Goal (Both Score),0.5635827497171905,0.013582749717190423,,0.0,low,Goal/No Goal
+20260110_540542_BL1,Bayer 04 Leverkusen,VfB Stuttgart,Bundesliga,17:30,over_1.5,Over 1.5 goals,0.7654631258324444,0.2154631258324443,,0.0,high,Over/Under
+20260110_540542_BL1,Bayer 04 Leverkusen,VfB Stuttgart,Bundesliga,17:30,mg_2-5,Multigol 2-5 goals,0.7021146942979535,0.15211469429795343,,0.0,high,Multigol
+20260110_540542_BL1,Bayer 04 Leverkusen,VfB Stuttgart,Bundesliga,17:30,combo_1x_gg,Combo: 1X_GG,0.5635827497171905,0.013582749717190423,,0.0,low,Combo
+20260110_540542_BL1,Bayer 04 Leverkusen,VfB Stuttgart,Bundesliga,17:30,dc_x2,X2 (Draw or Away),0.6053,0.055299999999999905,,0.0,medium,Doppia Chance
+20260110_540542_BL1,Bayer 04 Leverkusen,VfB Stuttgart,Bundesliga,17:30,under_3.5,Under 3.5 goals,0.6964151332341759,0.14641513323417588,,0.0,medium,Over/Under
+20260110_540542_BL1,Bayer 04 Leverkusen,VfB Stuttgart,Bundesliga,17:30,mg_1-3,Multigol 1-3 goals,0.6343453095756758,0.08434530957567576,,0.0,medium,Multigol
+20260110_540542_BL1,Bayer 04 Leverkusen,VfB Stuttgart,Bundesliga,17:30,mg_2-4,Multigol 2-4 goals,0.6162718549736466,0.06627185497364652,,0.0,medium,Multigol
+20260110_537602_DED,FC Twente '65,PEC Zwolle,Eredivisie,17:45,dc_1x,1X (Home or Draw),1.0,0.44999999999999996,,0.0,high,Doppia Chance
+20260110_537602_DED,FC Twente '65,PEC Zwolle,Eredivisie,17:45,over_1.5,Over 1.5 goals,0.7494952706810368,0.19949527068103678,,0.0,high,Over/Under
+20260110_537602_DED,FC Twente '65,PEC Zwolle,Eredivisie,17:45,mg_2-5,Multigol 2-5 goals,0.6935878499197397,0.1435878499197396,,0.0,medium,Multigol
+20260110_537602_DED,FC Twente '65,PEC Zwolle,Eredivisie,17:45,dc_x2,X2 (Draw or Away),0.6053,0.055299999999999905,,0.0,medium,Doppia Chance
+20260110_537602_DED,FC Twente '65,PEC Zwolle,Eredivisie,17:45,under_3.5,Under 3.5 goals,0.7163196759952526,0.16631967599525255,,0.0,high,Over/Under
+20260110_537602_DED,FC Twente '65,PEC Zwolle,Eredivisie,17:45,mg_1-3,Multigol 1-3 goals,0.6484146735863277,0.0984146735863276,,0.0,medium,Multigol
+20260110_537602_DED,FC Twente '65,PEC Zwolle,Eredivisie,17:45,mg_2-4,Multigol 2-4 goals,0.6139117628293781,0.06391176282937805,,0.0,medium,Multigol
+20260110_537598_DED,PSV,SBV Excelsior,Eredivisie,19:00,dc_1x,1X (Home or Draw),1.0,0.44999999999999996,,0.0,high,Doppia Chance
+20260110_537598_DED,PSV,SBV Excelsior,Eredivisie,19:00,gg,Goal/Goal (Both Score),0.5610232727548734,0.011023272754873359,,0.0,low,Goal/No Goal
+20260110_537598_DED,PSV,SBV Excelsior,Eredivisie,19:00,over_1.5,Over 1.5 goals,0.7722515771296635,0.22225157712966348,,0.0,high,Over/Under
+20260110_537598_DED,PSV,SBV Excelsior,Eredivisie,19:00,mg_2-5,Multigol 2-5 goals,0.7054370105954131,0.15543701059541304,,0.0,high,Multigol
+20260110_537598_DED,PSV,SBV Excelsior,Eredivisie,19:00,combo_1x_gg,Combo: 1X_GG,0.5610232727548734,0.011023272754873359,,0.0,low,Combo
+20260110_537598_DED,PSV,SBV Excelsior,Eredivisie,19:00,dc_x2,X2 (Draw or Away),0.6053,0.055299999999999905,,0.0,medium,Doppia Chance
+20260110_537598_DED,PSV,SBV Excelsior,Eredivisie,19:00,under_3.5,Under 3.5 goals,0.6875384127049495,0.1375384127049495,,0.0,medium,Over/Under
+20260110_537598_DED,PSV,SBV Excelsior,Eredivisie,19:00,mg_1-3,Multigol 1-3 goals,0.6278787482738212,0.07787874827382113,,0.0,medium,Multigol
+20260110_537598_DED,PSV,SBV Excelsior,Eredivisie,19:00,mg_2-4,Multigol 2-4 goals,0.6168533023415183,0.0668533023415182,,0.0,medium,Multigol
+20260110_537595_DED,FC Groningen,NAC Breda,Eredivisie,20:00,dc_1x,1X (Home or Draw),1.0,0.44999999999999996,,0.0,high,Doppia Chance
+20260110_537595_DED,FC Groningen,NAC Breda,Eredivisie,20:00,gg,Goal/Goal (Both Score),0.590338842824855,0.040338842824855003,,0.0,low,Goal/No Goal
+20260110_537595_DED,FC Groningen,NAC Breda,Eredivisie,20:00,over_1.5,Over 1.5 goals,0.789320392883879,0.23932039288387896,,0.0,high,Over/Under
+20260110_537595_DED,FC Groningen,NAC Breda,Eredivisie,20:00,mg_2-5,Multigol 2-5 goals,0.7128197898771386,0.16281978987713852,,0.0,high,Multigol
+20260110_537595_DED,FC Groningen,NAC Breda,Eredivisie,20:00,combo_1x_gg,Combo: 1X_GG,0.590338842824855,0.040338842824855003,,0.0,low,Combo
+20260110_537595_DED,FC Groningen,NAC Breda,Eredivisie,20:00,dc_x2,X2 (Draw or Away),0.6053,0.055299999999999905,,0.0,medium,Doppia Chance
+20260110_537595_DED,FC Groningen,NAC Breda,Eredivisie,20:00,under_3.5,Under 3.5 goals,0.6640753996151496,0.11407539961514956,,0.0,medium,Over/Under
+20260110_537595_DED,FC Groningen,NAC Breda,Eredivisie,20:00,mg_2-4,Multigol 2-4 goals,0.6170702387943661,0.06707023879436602,,0.0,medium,Multigol
+20260110_537595_DED,FC Groningen,NAC Breda,Eredivisie,20:00,over_2.5,Over 2.5 goals,0.5597529030109535,0.00975290301095344,,0.0,low,Over/Under
+20260110_537595_DED,FC Groningen,NAC Breda,Eredivisie,20:00,mg_1-3,Multigol 1-3 goals,0.610365016343764,0.06036501634376401,,0.0,medium,Multigol

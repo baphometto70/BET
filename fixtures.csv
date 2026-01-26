@@ -1,1 +1,9 @@
-match_id,date,time,league,league_code,home,away,odds_1,odds_x,odds_2,odds_ou25_over,odds_ou25_under,line_ou
+match_id,league,date,time_local,home,away,odds_1,odds_x,odds_2,line_ou,odds_over,odds_under,odds_ou25_over,odds_ou25_under,overround
+20251220_NEWCASTLE_UNITED_FC_CHELSEA_FC_PREMIER_LEAGUE,Premier League,2025-12-20,12:30,Newcastle United FC,Chelsea FC,,,,2.5,,,,,
+20251220_BRIGHTON_&_HOVE_ALBION_FC_SUNDERLAND_AFC_PREMIER_LEAGUE,Premier League,2025-12-20,15:00,Brighton & Hove Albion FC,Sunderland AFC,,,,2.5,,,,,
+20251220_WOLVERHAMPTON_WANDERERS_FC_BRENTFORD_FC_PREMIER_LEAGUE,Premier League,2025-12-20,15:00,Wolverhampton Wanderers FC,Brentford FC,,,,2.5,,,,,
+20251220_MANCHESTER_CITY_FC_WEST_HAM_UNITED_FC_PREMIER_LEAGUE,Premier League,2025-12-20,15:00,Manchester City FC,West Ham United FC,,,,2.5,,,,,
+20251220_AFC_BOURNEMOUTH_BURNLEY_FC_PREMIER_LEAGUE,Premier League,2025-12-20,15:00,AFC Bournemouth,Burnley FC,,,,2.5,,,,,
+20251220_TOTTENHAM_HOTSPUR_FC_LIVERPOOL_FC_PREMIER_LEAGUE,Premier League,2025-12-20,17:30,Tottenham Hotspur FC,Liverpool FC,,,,2.5,,,,,
+20251220_LEEDS_UNITED_FC_CRYSTAL_PALACE_FC_PREMIER_LEAGUE,Premier League,2025-12-20,20:00,Leeds United FC,Crystal Palace FC,,,,2.5,,,,,
+20251220_EVERTON_FC_ARSENAL_FC_PREMIER_LEAGUE,Premier League,2025-12-20,20:00,Everton FC,Arsenal FC,,,,2.5,,,,,

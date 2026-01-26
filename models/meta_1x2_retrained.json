@@ -1,0 +1,32 @@
+{
+  "accuracy": 0.4774011299435028,
+  "log_loss": 1.152695670233706,
+  "n_samples": 1416,
+  "n_features": 19,
+  "features": [
+    "xg_for_home",
+    "xg_against_home",
+    "xg_for_away",
+    "xg_against_away",
+    "rest_days_home",
+    "rest_days_away",
+    "derby_flag",
+    "europe_flag_home",
+    "europe_flag_away",
+    "meteo_flag",
+    "style_ppda_home",
+    "style_ppda_away",
+    "odds_1",
+    "odds_x",
+    "odds_2",
+    "xg_total",
+    "xg_diff",
+    "xg_ratio",
+    "ppda_diff"
+  ],
+  "classes": [
+    0,
+    1,
+    2
+  ]
+}

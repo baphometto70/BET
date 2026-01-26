@@ -1,5 +1,359 @@
-[START] predict — 2025-11-05 17:24:53
-$ python model_pipeline.py --predict
-[OK] predictions.csv scritto (9 righe).
-[OK] report HTML: /Users/gennaro.taurino/Documents/DEV/BET/report.html
-[END] predict — 2025-11-05 17:24:57
+[START] daily — 2025-12-27 11:51:08
+[INFO] Vecchio report.html rimosso.
+[INFO] Vecchio predictions.csv rimosso.
+
+[STEP 1/4] Recupero partite per 2025-12-27...
+$ /Library/Developer/CommandLineTools/usr/bin/python3 fixtures_fetcher.py --date 2025-12-27 --comps SA,PL,PD,BL1,FL1,DED,PPL
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+warnings.warn(
+[INFO] Scarico partite da 2025-12-27 a 2026-01-05 (10 giorni).
+[FD] SA: trovate 20 partite.
+[FD] PL: trovate 29 partite.
+[FD] PD: trovate 10 partite.
+[WARN] BL1: nessuna partita da FD o TOA.
+[FD] FL1: trovate 9 partite.
+[WARN] DED: nessuna partita da FD o TOA.
+[FD] PPL: trovate 16 partite.
+
+[DB] Connessione al database per inserire/aggiornare 84 partite...
+[DB] Commit eseguito. 84 partite inserite/aggiornate nel database.
+[DB] Connessione al database chiusa.
+
+[STEP 2/4] Recupero quote per 2025-12-27...
+$ /Library/Developer/CommandLineTools/usr/bin/python3 odds_fetcher.py --date 2025-12-27 --comps SA,PL,PD,BL1,FL1,DED,PPL --delay 0.3
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+warnings.warn(
+[DB] Trovate 14 partite nel DB da processare per il 2025-12-27.
+[TOA] SA: Autenticazione fallita (HTTP 401)
+[SKIP] SA: Nessun dato disponibile
+[TOA] PL: Autenticazione fallita (HTTP 401)
+[SKIP] PL: Nessun dato disponibile
+[TOA] PD: Autenticazione fallita (HTTP 401)
+[SKIP] PD: Nessun dato disponibile
+[TOA] BL1: Autenticazione fallita (HTTP 401)
+[SKIP] BL1: Nessun dato disponibile
+[TOA] FL1: Autenticazione fallita (HTTP 401)
+[SKIP] FL1: Nessun dato disponibile
+[TOA] DED: Autenticazione fallita (HTTP 401)
+[SKIP] DED: Nessun dato disponibile
+[TOA] PPL: Autenticazione fallita (HTTP 401)
+[SKIP] PPL: Nessun dato disponibile
+
+[OK] Quote aggiornate nel database → 0 partite.
+
+[STEP 3/4] Popolamento features per 2025-12-27...
+$ /Library/Developer/CommandLineTools/usr/bin/python3 features_populator.py --date 2025-12-27 --comps SA,PL,PD,BL1,FL1,DED,PPL --n_recent 5 --delay 0.6 --cache 1
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+warnings.warn(
+[FEATURE-POP] Avvio population features per 2025-12-27
+[DB] Trovate 14 partite nel DB da processare.
+[1/14] Processamento 20251227_536980_SA: Parma Calcio 1913 vs ACF Fiorentina
+
+[WARN-FALLBACK] 20251227_536980_SA: Parma Calcio 1913 vs ACF Fiorentina
+- Dati Understat/FBRef non disponibili.
+- Stima basata su squadre MEDIE vs MEDIE.
+[FALLBACK-2] 20251227_536980_SA: xG home stimati (1.22 | 1.41) - squadra MEDIA.
+[FALLBACK-2] 20251227_536980_SA: xG away stimati (1.38 | 1.59) - squadra MEDIA.
+[2/14] Processamento 20251227_536979_SA: Torino FC vs Cagliari Calcio
+
+[WARN-FALLBACK] 20251227_536979_SA: Torino FC vs Cagliari Calcio
+- Dati Understat/FBRef non disponibili.
+- Stima basata su squadre MEDIE vs MEDIE.
+[FALLBACK-2] 20251227_536979_SA: xG home stimati (1.41 | 1.63) - squadra MEDIA.
+[FALLBACK-2] 20251227_536979_SA: xG away stimati (1.25 | 1.44) - squadra MEDIA.
+[3/14] Processamento 20251227_536984_SA: US Lecce vs Como 1907
+[WARN-FALLBACK] 20251227_536984_SA: US Lecce vs Como 1907
+- Dati Understat/FBRef non disponibili.
+- Stima basata su squadre MEDIE vs MEDIE.
+[FALLBACK-2] 20251227_536984_SA: xG home stimati (1.24 | 1.44) - squadra MEDIA.
+[FALLBACK-2] 20251227_536984_SA: xG away stimati (1.32 | 1.53) - squadra MEDIA.
+[4/14] Processamento 20251227_536982_SA: Udinese Calcio vs SS Lazio
+
+[WARN-FALLBACK] 20251227_536982_SA: Udinese Calcio vs SS Lazio
+- Dati Understat/FBRef non disponibili.
+- Stima basata su squadre MEDIE vs FORTI.
+[FALLBACK-2] 20251227_536982_SA: xG home stimati (1.18 | 1.36) - squadra MEDIA.
+[FALLBACK-2] 20251227_536982_SA: xG away stimati (1.72 | 0.93) - squadra FORTE.
+[5/14] Processamento 20251227_536981_SA: AC Pisa 1909 vs Juventus FC
+
+[WARN-FALLBACK] 20251227_536981_SA: AC Pisa 1909 vs Juventus FC
+- Dati Understat/FBRef non disponibili.
+- Stima basata su squadre MEDIE vs FORTI.
+[FALLBACK-2] 20251227_536981_SA: xG home stimati (1.34 | 1.55) - squadra MEDIA.
+[FALLBACK-2] 20251227_536981_SA: xG away stimati (1.96 | 1.06) - squadra FORTE.
+[6/14] Processamento 20251227_537963_PL: Nottingham Forest FC vs Manchester City FC
+
+[WARN-FALLBACK] 20251227_537963_PL: Nottingham Forest FC vs Manchester City FC
+- Dati Understat/FBRef non disponibili.
+- Stima basata su squadre MEDIE vs FORTI.
+[FALLBACK-2] 20251227_537963_PL: xG home stimati (1.33 | 1.53) - squadra MEDIA.
+[FALLBACK-2] 20251227_537963_PL: xG away stimati (1.96 | 1.06) - squadra FORTE.
+[7/14] Processamento 20251227_537957_PL: Arsenal FC vs Brighton & Hove Albion FC
+
+[WARN-FALLBACK] 20251227_537957_PL: Arsenal FC vs Brighton & Hove Albion FC
+- Dati Understat/FBRef non disponibili.
+- Stima basata su squadre FORTI vs MEDIE.
+[FALLBACK-2] 20251227_537957_PL: xG home stimati (1.92 | 1.04) - squadra FORTE.
+[FALLBACK-2] 20251227_537957_PL: xG away stimati (1.17 | 1.35) - squadra MEDIA.
+[8/14] Processamento 20251227_537958_PL: Brentford FC vs AFC Bournemouth
+
+[WARN-FALLBACK] 20251227_537958_PL: Brentford FC vs AFC Bournemouth
+- Dati Understat/FBRef non disponibili.
+- Stima basata su squadre MEDIE vs MEDIE.
+[FALLBACK-2] 20251227_537958_PL: xG home stimati (1.24 | 1.43) - squadra MEDIA.
+[FALLBACK-2] 20251227_537958_PL: xG away stimati (1.27 | 1.46) - squadra MEDIA.
+[9/14] Processamento 20251227_537959_PL: Burnley FC vs Everton FC
+
+[WARN-FALLBACK] 20251227_537959_PL: Burnley FC vs Everton FC
+- Dati Understat/FBRef non disponibili.
+- Stima basata su squadre MEDIE vs MEDIE.
+[FALLBACK-2] 20251227_537959_PL: xG home stimati (1.35 | 1.56) - squadra MEDIA.
+[FALLBACK-2] 20251227_537959_PL: xG away stimati (1.21 | 1.39) - squadra MEDIA.
+[10/14] Processamento 20251227_537961_PL: Liverpool FC vs Wolverhampton Wanderers FC
+
+[WARN-FALLBACK] 20251227_537961_PL: Liverpool FC vs Wolverhampton Wanderers FC
+- Dati Understat/FBRef non disponibili.
+- Stima basata su squadre FORTI vs MEDIE.
+[FALLBACK-2] 20251227_537961_PL: xG home stimati (1.68 | 0.91) - squadra FORTE.
+[FALLBACK-2] 20251227_537961_PL: xG away stimati (1.37 | 1.58) - squadra MEDIA.
+[11/14] Processamento 20251227_537964_PL: West Ham United FC vs Fulham FC
+
+[WARN-FALLBACK] 20251227_537964_PL: West Ham United FC vs Fulham FC
+- Dati Understat/FBRef non disponibili.
+- Stima basata su squadre MEDIE vs MEDIE.
+[FALLBACK-2] 20251227_537964_PL: xG home stimati (1.19 | 1.37) - squadra MEDIA.
+[FALLBACK-2] 20251227_537964_PL: xG away stimati (1.19 | 1.37) - squadra MEDIA.
+[12/14] Processamento 20251227_537960_PL: Chelsea FC vs Aston Villa FC
+
+[WARN-FALLBACK] 20251227_537960_PL: Chelsea FC vs Aston Villa FC
+- Dati Understat/FBRef non disponibili.
+- Stima basata su squadre FORTI vs MEDIE.
+[FALLBACK-2] 20251227_537960_PL: xG home stimati (1.90 | 1.03) - squadra FORTE.
+[FALLBACK-2] 20251227_537960_PL: xG away stimati (1.41 | 1.62) - squadra MEDIA.
+[13/14] Processamento 20251227_545839_PPL: FC Famalicão vs CF Estrela da Amadora
+
+[WARN-FALLBACK] 20251227_545839_PPL: FC Famalicão vs CF Estrela da Amadora
+- Dati Understat/FBRef non disponibili.
+- Stima basata su squadre MEDIE vs MEDIE.
+[FALLBACK-2] 20251227_545839_PPL: xG home stimati (1.24 | 1.43) - squadra MEDIA.
+[FALLBACK-2] 20251227_545839_PPL: xG away stimati (1.24 | 1.43) - squadra MEDIA.
+[14/14] Processamento 20251227_545840_PPL: GD Estoril Praia vs FC Alverca
+
+[WARN-FALLBACK] 20251227_545840_PPL: GD Estoril Praia vs FC Alverca
+- Dati Understat/FBRef non disponibili.
+- Stima basata su squadre MEDIE vs MEDIE.
+[FALLBACK-2] 20251227_545840_PPL: xG home stimati (1.27 | 1.46) - squadra MEDIA.
+[FALLBACK-2] 20251227_545840_PPL: xG away stimati (1.41 | 1.63) - squadra MEDIA.
+
+[DB] Commit eseguito. 14 features inserite/aggiornate nel database.
+
+[STEP 4/4] Generazione previsioni...
+$ /Library/Developer/CommandLineTools/usr/bin/python3 model_pipeline.py --predict --date 2025-12-27 --comps SA,PL,PD,BL1,FL1,DED,PPL
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/base.py:380: InconsistentVersionWarning: Trying to unpickle estimator LabelEncoder from version 1.7.0 when using version 1.6.1. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/base.py:380: InconsistentVersionWarning: Trying to unpickle estimator SimpleImputer from version 1.7.0 when using version 1.6.1. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+warnings.warn(
+[INFO] Modello OU: lgbm (n=12533, CV splits=5)
+[INFO] Modello 1X2: lgbm (n=7120, CV splits=5)
+[WARN] Errore predizione 1X2 per 20251227_536980_SA: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione OU per 20251227_536980_SA: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione 1X2 per 20251227_536979_SA: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione OU per 20251227_536979_SA: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione 1X2 per 20251227_536984_SA: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione OU per 20251227_536984_SA: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione 1X2 per 20251227_536982_SA: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione OU per 20251227_536982_SA: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione 1X2 per 20251227_536981_SA: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione OU per 20251227_536981_SA: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione 1X2 per 20251227_537963_PL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione OU per 20251227_537963_PL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione 1X2 per 20251227_537957_PL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione OU per 20251227_537957_PL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione 1X2 per 20251227_537958_PL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione OU per 20251227_537958_PL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione 1X2 per 20251227_537959_PL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione OU per 20251227_537959_PL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione 1X2 per 20251227_537961_PL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+[WARN] Errore predizione OU per 20251227_537961_PL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione 1X2 per 20251227_537964_PL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione OU per 20251227_537964_PL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione 1X2 per 20251227_537960_PL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione OU per 20251227_537960_PL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione 1X2 per 20251227_545839_PPL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione OU per 20251227_545839_PPL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione 1X2 per 20251227_545840_PPL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[WARN] Errore predizione OU per 20251227_545840_PPL: The feature names should match those that were passed during fit.
+Feature names seen at fit time, yet now missing:
+- xG_against_5_away
+- xG_against_5_home
+- xG_for_5_away
+- xG_for_5_home
+
+[OK] predictions.csv scritto (14 righe).
+[OK] report HTML: /Users/gennaro.taurino/Develop/BET/BET/report.html
+
+[OK] Pipeline giornaliera completata con successo.
+[END] daily — 2025-12-27 11:51:17

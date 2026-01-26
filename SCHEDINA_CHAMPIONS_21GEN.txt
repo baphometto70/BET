@@ -1,0 +1,405 @@
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/impute/_base.py:635: UserWarning: Skipping features without any observed values: ['rest_days_home' 'rest_days_away' 'style_ppda_home' 'style_ppda_away']. At least one non-missing value is needed for imputation with strategy='median'.
+  warnings.warn(
+/Users/gennaro.taurino/Library/Python/3.9/lib/python/site-packages/sklearn/utils/validation.py:2739: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+====================================================================================================
+🏆 SCHEDINA CHAMPIONS LEAGUE - 21 GENNAIO 2026 (ML OTTIMIZZATO)
+====================================================================================================
+
+🔄 Caricamento modelli ML riaddestrati...
+✅ Modello 1X2 caricato (Accuracy: 47.88%)
+✅ Modello O/U caricato (Accuracy: 56.66%)
+
+🏆 Partite Champions League del 21/01/2026: 9
+
+====================================================================================================
+⚽ Qarabağ Ağdam FK vs Eintracht Frankfurt
+🏆 CL | ⏰ 17:45
+====================================================================================================
+
+📊 Expected Goals: Casa 1.30 | Trasferta 1.36
+
+🤖 PREDIZIONI MACHINE LEARNING:
+   1X2:
+      1 (Casa):       25.7% | Quota ~3.89
+      X (Pareggio):   41.9% | Quota ~2.39
+      2 (Trasferta):  32.4% | Quota ~3.08
+
+   Over/Under 2.5:
+      Over 2.5:   34.1% | Quota ~2.93
+      Under 2.5:  65.9% | Quota ~1.52
+
+   Doppia Chance:
+      1X:   67.6% | X2:  74.3% | 12:  58.1%
+
+   Gol:
+      GG:   54.3% | NG:  45.7%
+
+💡 PICK CONSIGLIATO:
+   ⭐ DC X2        →  74.3% | Q ~1.35
+
+====================================================================================================
+⚽ Galatasaray SK vs Club Atlético de Madrid
+🏆 CL | ⏰ 17:45
+====================================================================================================
+
+📊 Expected Goals: Casa 1.45 | Trasferta 1.40
+
+🤖 PREDIZIONI MACHINE LEARNING:
+   1X2:
+      1 (Casa):       45.4% | Quota ~2.20
+      X (Pareggio):   15.7% | Quota ~6.37
+      2 (Trasferta):  38.9% | Quota ~2.57
+
+   Over/Under 2.5:
+      Over 2.5:   46.9% | Quota ~2.13
+      Under 2.5:  53.1% | Quota ~1.88
+
+   Doppia Chance:
+      1X:   61.1% | X2:  54.6% | 12:  84.3%
+
+   Gol:
+      GG:   57.7% | NG:  42.3%
+
+💡 PICK CONSIGLIATO:
+   🔥 DC 12        →  84.3% | Q ~1.19
+
+====================================================================================================
+⚽ Olympique de Marseille vs Liverpool FC
+🏆 CL | ⏰ 20:00
+====================================================================================================
+
+📊 Expected Goals: Casa 1.54 | Trasferta 1.35
+
+🤖 PREDIZIONI MACHINE LEARNING:
+   1X2:
+      1 (Casa):       28.8% | Quota ~3.47
+      X (Pareggio):   40.3% | Quota ~2.48
+      2 (Trasferta):  30.9% | Quota ~3.24
+
+   Over/Under 2.5:
+      Over 2.5:   35.1% | Quota ~2.85
+      Under 2.5:  64.9% | Quota ~1.54
+
+   Doppia Chance:
+      1X:   69.1% | X2:  71.2% | 12:  59.7%
+
+   Gol:
+      GG:   58.1% | NG:  41.9%
+
+💡 PICK CONSIGLIATO:
+   ⭐ DC X2        →  71.2% | Q ~1.41
+
+====================================================================================================
+⚽ SK Slavia Praha vs FC Barcelona
+🏆 CL | ⏰ 20:00
+====================================================================================================
+
+📊 Expected Goals: Casa 1.31 | Trasferta 1.33
+
+🤖 PREDIZIONI MACHINE LEARNING:
+   1X2:
+      1 (Casa):       15.5% | Quota ~6.47
+      X (Pareggio):   52.9% | Quota ~1.89
+      2 (Trasferta):  31.6% | Quota ~3.16
+
+   Over/Under 2.5:
+      Over 2.5:   33.0% | Quota ~3.03
+      Under 2.5:  67.0% | Quota ~1.49
+
+   Doppia Chance:
+      1X:   68.4% | X2:  84.5% | 12:  47.1%
+
+   Gol:
+      GG:   53.9% | NG:  46.1%
+
+💡 PICK CONSIGLIATO:
+   🔥 DC X2        →  84.5% | Q ~1.18
+
+====================================================================================================
+⚽ Atalanta BC vs Athletic Club
+🏆 CL | ⏰ 20:00
+====================================================================================================
+
+📊 Expected Goals: Casa 1.34 | Trasferta 1.34
+
+🤖 PREDIZIONI MACHINE LEARNING:
+   1X2:
+      1 (Casa):       50.5% | Quota ~1.98
+      X (Pareggio):   22.9% | Quota ~4.37
+      2 (Trasferta):  26.6% | Quota ~3.76
+
+   Over/Under 2.5:
+      Over 2.5:   30.1% | Quota ~3.32
+      Under 2.5:  69.9% | Quota ~1.43
+
+   Doppia Chance:
+      1X:   73.4% | X2:  49.5% | 12:  77.1%
+
+   Gol:
+      GG:   54.6% | NG:  45.4%
+
+💡 PICK CONSIGLIATO:
+   ⭐ DC 12        →  77.1% | Q ~1.30
+
+====================================================================================================
+⚽ Juventus FC vs Sport Lisboa e Benfica
+🏆 CL | ⏰ 20:00
+====================================================================================================
+
+📊 Expected Goals: Casa 1.39 | Trasferta 1.38
+
+🤖 PREDIZIONI MACHINE LEARNING:
+   1X2:
+      1 (Casa):       29.3% | Quota ~3.41
+      X (Pareggio):   32.0% | Quota ~3.12
+      2 (Trasferta):  38.7% | Quota ~2.59
+
+   Over/Under 2.5:
+      Over 2.5:   32.8% | Quota ~3.05
+      Under 2.5:  67.2% | Quota ~1.49
+
+   Doppia Chance:
+      1X:   61.3% | X2:  70.7% | 12:  68.0%
+
+   Gol:
+      GG:   56.2% | NG:  43.8%
+
+💡 PICK CONSIGLIATO:
+   ⭐ DC X2        →  70.7% | Q ~1.41
+
+====================================================================================================
+⚽ Newcastle United FC vs PSV
+🏆 CL | ⏰ 20:00
+====================================================================================================
+
+📊 Expected Goals: Casa 1.40 | Trasferta 1.36
+
+🤖 PREDIZIONI MACHINE LEARNING:
+   1X2:
+      1 (Casa):       42.0% | Quota ~2.38
+      X (Pareggio):   23.3% | Quota ~4.29
+      2 (Trasferta):  34.7% | Quota ~2.88
+
+   Over/Under 2.5:
+      Over 2.5:   40.9% | Quota ~2.44
+      Under 2.5:  59.1% | Quota ~1.69
+
+   Doppia Chance:
+      1X:   65.3% | X2:  58.0% | 12:  76.7%
+
+   Gol:
+      GG:   55.9% | NG:  44.1%
+
+💡 PICK CONSIGLIATO:
+   ⭐ DC 12        →  76.7% | Q ~1.30
+
+====================================================================================================
+⚽ FC Bayern München vs Royale Union Saint-Gilloise
+🏆 CL | ⏰ 20:00
+====================================================================================================
+
+📊 Expected Goals: Casa 1.44 | Trasferta 1.34
+
+🤖 PREDIZIONI MACHINE LEARNING:
+   1X2:
+      1 (Casa):       53.2% | Quota ~1.88
+      X (Pareggio):   36.9% | Quota ~2.71
+      2 (Trasferta):   9.9% | Quota ~10.11
+
+   Over/Under 2.5:
+      Over 2.5:   53.7% | Quota ~1.86
+      Under 2.5:  46.3% | Quota ~2.16
+
+   Doppia Chance:
+      1X:   90.1% | X2:  46.8% | 12:  63.1%
+
+   Gol:
+      GG:   56.5% | NG:  43.5%
+
+💡 PICK CONSIGLIATO:
+   🔥 DC 1X        →  90.1% | Q ~1.11
+
+====================================================================================================
+⚽ Chelsea FC vs Paphos FC
+🏆 CL | ⏰ 20:00
+====================================================================================================
+
+📊 Expected Goals: Casa 1.42 | Trasferta 1.45
+
+🤖 PREDIZIONI MACHINE LEARNING:
+   1X2:
+      1 (Casa):       50.7% | Quota ~1.97
+      X (Pareggio):   20.5% | Quota ~4.88
+      2 (Trasferta):  28.9% | Quota ~3.46
+
+   Over/Under 2.5:
+      Over 2.5:   38.2% | Quota ~2.61
+      Under 2.5:  61.8% | Quota ~1.62
+
+   Doppia Chance:
+      1X:   71.1% | X2:  49.3% | 12:  79.5%
+
+   Gol:
+      GG:   58.0% | NG:  42.0%
+
+💡 PICK CONSIGLIATO:
+   ⭐ DC 12        →  79.5% | Q ~1.26
+
+
+====================================================================================================
+📋 SCHEDINA CONSIGLIATA - MACHINE LEARNING (SOLO DOPPIA CHANCE)
+====================================================================================================
+
+⭐⭐⭐ SCHEDINA 5 EVENTI (PIÙ SICURA) ⭐⭐⭐
+
+1. FC Bayern München vs Royale Union Saint-Gilloise
+   ⏰ 20:00
+   🔥 DC 1X → 90.1%
+
+2. SK Slavia Praha vs FC Barcelona
+   ⏰ 20:00
+   🔥 DC X2 → 84.5%
+
+3. Galatasaray SK vs Club Atlético de Madrid
+   ⏰ 17:45
+   🔥 DC 12 → 84.3%
+
+4. Chelsea FC vs Paphos FC
+   ⏰ 20:00
+   ⭐ DC 12 → 79.5%
+
+5. Atalanta BC vs Athletic Club
+   ⏰ 20:00
+   ⭐ DC 12 → 77.1%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📊 PROBABILITÀ COMBINATA: 39.37%
+💰 QUOTA FAIR: ~2.54
+💵 QUOTA BOOKMAKER STIMATA: ~2.21 (dopo -13%)
+
+💵 IMPORTO CONSIGLIATO: 10-20€
+💵 VINCITA ATTESA (quota 2.21): 22.10€ con 10€, 44.19€ con 20€
+────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+📋 SCHEDINA COMPLETA (9 EVENTI)
+
+1. FC Bayern München vs Royale Union Saint-Gilloise   → DC 1X   (90.1%) 🔥
+2. SK Slavia Praha vs FC Barcelona                    → DC X2   (84.5%) 🔥
+3. Galatasaray SK vs Club Atlético de Madrid          → DC 12   (84.3%) 🔥
+4. Chelsea FC vs Paphos FC                            → DC 12   (79.5%) ⭐
+5. Atalanta BC vs Athletic Club                       → DC 12   (77.1%) ⭐
+6. Newcastle United FC vs PSV                         → DC 12   (76.7%) ⭐
+7. Qarabağ Ağdam FK vs Eintracht Frankfurt            → DC X2   (74.3%) ⭐
+8. Olympique de Marseille vs Liverpool FC             → DC X2   (71.2%) ⭐
+9. Juventus FC vs Sport Lisboa e Benfica              → DC X2   (70.7%) ⭐
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📊 PROBABILITÀ COMBINATA: 11.28%
+💰 QUOTA FAIR: ~8.87
+💵 QUOTA BOOKMAKER STIMATA: ~7.71
+
+💵 IMPORTO CONSIGLIATO: 5-10€
+💵 VINCITA ATTESA: 38.57€ con 5€, 77.13€ con 10€
+────────────────────────────────────────────────────────────────────────────────────────────────────
+
+====================================================================================================
+✅ PREDIZIONI ML COMPLETATE!
+====================================================================================================
+
+⚠️  NOTE IMPORTANTI:
+
+1. 🎯 Modelli ML riaddestrati con 1761 partite storiche
+   - Modello 1X2: 47.88% accuracy
+   - Modello O/U: 56.66% accuracy
+
+2. 💰 Quote mostrate sono FAIR (matematiche)
+   - Le quote REALI del bookmaker saranno ~13% più basse
+   - Es: Quota fair 3.0 → Quota reale ~2.6
+
+3. ✅ STRATEGIA: Usa solo DOPPIA CHANCE (più sicura)
+   - Probabilità 70-90% sui singoli pick
+   - Schedina 5 eventi: probabilità combinata ~39.4%
+
+4. ❌ GESTIONE BANKROLL:
+   - Mai più del 2-5% del budget totale
+   - Schedina 5 eventi raccomandata (più probabile)
+
+5. 🔥 Pick più sicuri (>80%):
+
+   - FC Bayern München vs Royale Union Saint-Gilloise → DC 1X (90.1%)
+   - SK Slavia Praha vs FC Barcelona               → DC X2 (84.5%)
+   - Galatasaray SK vs Club Atlético de Madrid     → DC 12 (84.3%)
+
+====================================================================================================
+🎯 BUONA FORTUNA!
+====================================================================================================

@@ -901,6 +901,18 @@ def load_data_from_db(date_str: str, comps: Optional[List[str]] = None) -> pd.Da
         if not odds_df.empty:
             df = pd.merge(df, odds_df, on="match_id", how="left")
 
+        # Carica e merge advanced features dal CSV
+        adv_features_path = Path("data/advanced_features.csv")
+        if adv_features_path.exists():
+            try:
+                adv_df = pd.read_csv(adv_features_path)
+                if not adv_df.empty and 'match_id' in adv_df.columns:
+                    # Merge advanced features
+                    df = pd.merge(df, adv_df, on="match_id", how="left", suffixes=('', '_adv'))
+                    print(f"[INFO] ✅ Caricati dati avanzati da {adv_features_path}")
+            except Exception as e:
+                print(f"[WARN] Errore caricamento advanced_features.csv: {e}")
+
         return df
     finally:
         db.close()

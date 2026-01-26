@@ -1,0 +1,21 @@
+match_id,home,away,league,market,market_name,probability,value,odds,kelly,confidence,category
+20260104_542555_FL1,Olympique de Marseille,FC Nantes,Ligue 1,away_under_2.5,Away Under 2.5 goals,0.9800191179979556,0.3300191179979556,,0.0,high,Team Totals
+20260104_536993_SA,SS Lazio,SSC Napoli,Serie A,under_5.5,Under 5.5 goals,0.9642778718847312,0.3142778718847311,,0.0,high,Over/Under
+20260104_536990_SA,Hellas Verona FC,Torino FC,Serie A,under_5.5,Under 5.5 goals,0.963671580783302,0.3136715807833019,,0.0,high,Over/Under
+20260104_544389_PD,RCD Mallorca,Girona FC,Primera Division,under_5.5,Under 5.5 goals,0.9618784273023514,0.3118784273023514,,0.0,high,Over/Under
+20260104_537978_PL,Everton FC,Brentford FC,Premier League,under_5.5,Under 5.5 goals,0.9617539279999154,0.3117539279999154,,0.0,high,Over/Under
+20260104_542550_FL1,Le Havre AC,Angers SCO,Ligue 1,under_5.5,Under 5.5 goals,0.9615798792627308,0.3115798792627307,,0.0,high,Over/Under
+20260104_536985_SA,ACF Fiorentina,US Cremonese,Serie A,under_5.5,Under 5.5 goals,0.9598356363032774,0.3098356363032774,,0.0,high,Over/Under
+20260104_537983_PL,Tottenham Hotspur FC,Sunderland AFC,Premier League,under_5.5,Under 5.5 goals,0.9596599151605394,0.3096599151605393,,0.0,high,Over/Under
+20260104_544390_PD,Sevilla FC,Levante UD,Primera Division,under_5.5,Under 5.5 goals,0.957948517337708,0.3079485173377081,,0.0,high,Over/Under
+20260104_542552_FL1,FC Lorient,FC Metz,Ligue 1,under_5.5,Under 5.5 goals,0.9574791902512164,0.3074791902512165,,0.0,high,Over/Under
+20260104_537980_PL,Leeds United FC,Manchester United FC,Premier League,under_5.5,Under 5.5 goals,0.9567799192527552,0.306779919252755,,0.0,high,Over/Under
+20260104_537979_PL,Fulham FC,Liverpool FC,Premier League,under_5.5,Under 5.5 goals,0.9565178313924984,0.3065178313924983,,0.0,high,Over/Under
+20260104_537982_PL,Newcastle United FC,Crystal Palace FC,Premier League,under_5.5,Under 5.5 goals,0.9562667728332682,0.3062667728332682,,0.0,high,Over/Under
+20260104_537981_PL,Manchester City FC,Chelsea FC,Premier League,under_5.5,Under 5.5 goals,0.9513107271240372,0.301310727124037,,0.0,high,Over/Under
+20260104_537982_PL,Newcastle United FC,Crystal Palace FC,Premier League,away_under_2.5,Away Under 2.5 goals,0.9338098170692336,0.2838098170692334,,0.0,high,Team Totals
+20260104_544390_PD,Sevilla FC,Levante UD,Primera Division,away_under_2.5,Away Under 2.5 goals,0.9284872692686792,0.2784872692686791,,0.0,high,Team Totals
+20260104_542550_FL1,Le Havre AC,Angers SCO,Ligue 1,away_under_2.5,Away Under 2.5 goals,0.9283124632538372,0.2783124632538373,,0.0,high,Team Totals
+20260104_537983_PL,Tottenham Hotspur FC,Sunderland AFC,Premier League,away_under_2.5,Away Under 2.5 goals,0.9281374646994928,0.2781374646994928,,0.0,high,Team Totals
+20260104_542552_FL1,FC Lorient,FC Metz,Ligue 1,away_under_2.5,Away Under 2.5 goals,0.9276113155418714,0.2776113155418713,,0.0,high,Team Totals
+20260104_537981_PL,Manchester City FC,Chelsea FC,Premier League,away_under_2.5,Away Under 2.5 goals,0.9267305657859428,0.2767305657859428,,0.0,high,Team Totals

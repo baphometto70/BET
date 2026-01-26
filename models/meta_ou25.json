@@ -64,7 +64,7 @@
     "momentum_diff"
   ],
   "n_samples": 1752,
-  "created_at": "2026-01-03T00:30:57.220049",
+  "created_at": "2026-01-24T14:48:44.987871",
   "algo": "lgbm",
   "cv_splits": 5,
   "cv_brier": 0.3095990148034285,

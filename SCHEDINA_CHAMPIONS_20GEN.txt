@@ -1,0 +1,122 @@
+================================================================================
+🏆 SCHEDINA CHAMPIONS LEAGUE - 20 GENNAIO 2026
+================================================================================
+📊 MACHINE LEARNING - Accuracy: 48.72% (1X2), 55.84% (O/U)
+🎯 Sistema: LightGBM con 19 features + odds
+================================================================================
+
+⭐⭐⭐ SCHEDINA CONSIGLIATA (5 EVENTI) - ALTA PROBABILITÀ ⭐⭐⭐
+
+1. FK Kairat vs Club Brugge KV (15:30)
+   → DOPPIA CHANCE X2 - 75.2%
+   (Pareggio o Vittoria Brugge)
+
+2. FK Bodø/Glimt vs Manchester City FC (17:45) 🔥
+   → DOPPIA CHANCE 1X - 88.9%
+   (Vittoria Bodø/Glimt o Pareggio)
+
+3. Tottenham Hotspur FC vs Borussia Dortmund (20:00) 🔥
+   → DOPPIA CHANCE 12 - 81.3%
+   (No Pareggio)
+
+4. Sporting Clube de Portugal vs Paris Saint-Germain FC (20:00) 🔥
+   → DOPPIA CHANCE 1X - 82.6%
+   (Vittoria Sporting o Pareggio)
+
+5. PAE Olympiakos SFP vs Bayer 04 Leverkusen (20:00)
+   → DOPPIA CHANCE 12 - 72.5%
+   (No Pareggio)
+
+────────────────────────────────────────────────────────────────────────────
+📊 PROBABILITÀ COMBINATA: 32.54%
+💰 QUOTA FAIR: ~3.07
+💵 QUOTA BOOKMAKER STIMATA: ~2.6-2.8 (dopo -15%)
+
+💵 IMPORTO CONSIGLIATO: 10-20€
+💵 VINCITA ATTESA (quota 2.7): 27€ con 10€, 54€ con 20€
+────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+📋 SCHEDINA COMPLETA (9 EVENTI) - QUOTA PIÙ ALTA
+================================================================================
+
+1. FK Kairat vs Club Brugge KV (15:30)
+   → DC X2 - 75.2%
+
+2. FK Bodø/Glimt vs Manchester City FC (17:45) 🔥
+   → DC 1X - 88.9%
+
+3. Tottenham Hotspur FC vs Borussia Dortmund (20:00) 🔥
+   → DC 12 - 81.3%
+
+4. Sporting Clube de Portugal vs Paris Saint-Germain FC (20:00) 🔥
+   → DC 1X - 82.6%
+
+5. PAE Olympiakos SFP vs Bayer 04 Leverkusen (20:00)
+   → DC 12 - 72.5%
+
+6. Villarreal CF vs AFC Ajax (20:00)
+   → DC 12 - 75.0%
+
+7. FC København vs SSC Napoli (20:00)
+   → DC 12 - 73.5%
+
+8. Real Madrid CF vs AS Monaco FC (20:00) 🔥
+   → DC 1X - 89.9%
+
+9. FC Internazionale Milano vs Arsenal FC (20:00)
+   → DC X2 - 75.6%
+
+────────────────────────────────────────────────────────────────────────────
+📊 PROBABILITÀ COMBINATA: 12.18%
+💰 QUOTA FAIR: ~8.21
+💵 QUOTA BOOKMAKER STIMATA: ~7.0 (dopo -15%)
+
+💵 IMPORTO CONSIGLIATO: 5-10€
+💵 VINCITA ATTESA (quota 7.0): 35€ con 5€, 70€ con 10€
+────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+⚠️  NOTE IMPORTANTI
+================================================================================
+
+1. 🎯 Le probabilità sono calcolate con Machine Learning (non Poisson!)
+   - Modello 1X2: 48.72% accuracy su 1752 partite storiche
+   - Modello O/U: 55.84% accuracy
+
+2. 💰 Quote mostrate sono FAIR (matematiche)
+   - Le quote REALI del bookmaker saranno 10-15% più basse
+   - Es: Quota fair 3.07 → Quota reale ~2.6-2.8
+
+3. ✅ CONSIGLIO: Usa la schedina da 5 eventi
+   - Probabilità 32.54% è buona (1 su 3 vincente)
+   - Quote reali ~2.6-2.8 sono accettabili
+   - Rischio/rendimento bilanciato
+
+4. ❌ NON esagerare con l'importo
+   - Queste sono predizioni ML, non certezze
+   - Gestione bankroll: mai più del 2-5% del budget totale
+
+5. 🔥 Pick più sicuri (>85%):
+   - Bodø/Glimt vs Man City → 1X (88.9%)
+   - Real Madrid vs Monaco → 1X (89.9%)
+
+================================================================================
+📊 CONFRONTO CON SISTEMA PRECEDENTE
+================================================================================
+
+PRIMA (Poisson):
+- Probabilità: 50-60% (troppo basse)
+- Sempre stesse scommesse
+- ❌ Buttavi soldi
+
+ADESSO (ML Ottimizzato):
+- Probabilità: 72-90% sui singoli pick
+- Predizioni variate
+- ✅ Sistema più affidabile
+
+================================================================================
+🎯 BUONA FORTUNA!
+================================================================================

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mercati Estesi - BET Dashboard</title>
+    <title>Schedina Completa - BET Dashboard</title>
     <style>
       :root {
         --bg-color: #fcfcfc;
@@ -20,6 +20,7 @@
         --shadow-color: rgba(0, 0, 0, 0.03);
         --fire-color: #ff6b35;
         --gold-color: #f7b731;
+        --bronze-color: #cd7f32;
       }
 
       * { box-sizing: border-box; }
@@ -35,7 +36,7 @@
       }
 
       .container {
-        max-width: 1400px;
+        max-width: 1600px;
         margin: 0 auto;
       }
 
@@ -100,10 +101,6 @@
         color: var(--header-color);
       }
 
-      .stat-card .value.good {
-        color: var(--success-color);
-      }
-
       .panel {
         background: var(--panel-bg-color);
         border: 1px solid var(--border-color);
@@ -116,25 +113,255 @@
       .panel-header {
         padding: 1.2rem 1.5rem;
         border-bottom: 1px solid var(--border-color);
-        background: #fafafa;
+        background: linear-gradient(135deg, var(--accent-color), var(--accent-color-hover));
+        color: white;
       }
 
       .panel-header h2 {
         margin: 0;
-        font-size: 1.3rem;
+        font-size: 1.4rem;
         font-weight: 600;
-        color: var(--header-color);
       }
 
       .panel-content {
         padding: 1.5rem;
       }
 
-      .filter-form {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      .match-card {
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+        background: white;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      .match-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px var(--shadow-color);
+      }
+
+      .match-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.8rem;
+        border-bottom: 2px solid var(--border-color);
+      }
+
+      .match-teams {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--header-color);
+      }
+
+      .match-info {
+        display: flex;
         gap: 1rem;
+        align-items: center;
+        font-size: 0.9rem;
+        color: var(--subtle-text-color);
+      }
+
+      .match-time {
+        background: var(--accent-color);
+        color: white;
+        padding: 0.3rem 0.8rem;
+        border-radius: 4px;
+        font-weight: 600;
+      }
+
+      .match-1x2 {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        padding: 0.8rem;
+        background: #f9f9f9;
+        border-radius: 6px;
+      }
+
+      .prob-item {
+        flex: 1;
+        text-align: center;
+      }
+
+      .prob-item .label {
+        font-size: 0.85rem;
+        color: var(--subtle-text-color);
+        display: block;
+        margin-bottom: 0.3rem;
+      }
+
+      .prob-item .value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--header-color);
+      }
+
+      .picks-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.8rem;
+      }
+
+      .pick-item {
+        padding: 0.8rem;
+        border: 2px solid var(--border-color);
+        border-radius: 6px;
+        text-align: center;
+        background: white;
+      }
+
+      .pick-item.pick-1 {
+        border-color: var(--fire-color);
+        background: rgba(255, 107, 53, 0.05);
+      }
+
+      .pick-item.pick-2 {
+        border-color: var(--gold-color);
+        background: rgba(247, 183, 49, 0.05);
+      }
+
+      .pick-item.pick-3 {
+        border-color: var(--bronze-color);
+        background: rgba(205, 127, 50, 0.05);
+      }
+
+      .pick-rank {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-bottom: 0.3rem;
+      }
+
+      .pick-item.pick-1 .pick-rank {
+        color: var(--fire-color);
+      }
+
+      .pick-item.pick-2 .pick-rank {
+        color: var(--gold-color);
+      }
+
+      .pick-item.pick-3 .pick-rank {
+        color: var(--bronze-color);
+      }
+
+      .pick-market {
+        font-weight: 600;
+        font-size: 1rem;
+        color: var(--header-color);
+        margin-bottom: 0.3rem;
+      }
+
+      .pick-prob {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--success-color);
+      }
+
+      .pick-quota {
+        font-size: 0.85rem;
+        color: var(--subtle-text-color);
+        margin-top: 0.2rem;
+      }
+
+      .schedina-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        padding: 2rem;
+        color: white;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+      }
+
+      .schedina-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+      }
+
+      .schedina-title {
+        font-size: 1.6rem;
+        font-weight: 700;
+        margin: 0;
+      }
+
+      .schedina-desc {
+        font-size: 0.95rem;
+        opacity: 0.9;
+      }
+
+      .schedina-matches {
+        margin-bottom: 1.5rem;
+      }
+
+      .schedina-match {
+        padding: 0.8rem;
+        margin-bottom: 0.5rem;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .schedina-match-name {
+        font-weight: 600;
+      }
+
+      .schedina-match-pick {
+        font-weight: 700;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 0.3rem 0.8rem;
+        border-radius: 4px;
+      }
+
+      .schedina-totals {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 1.5rem;
+        border-radius: 8px;
+      }
+
+      .schedina-total-item {
+        text-align: center;
+      }
+
+      .schedina-total-label {
+        font-size: 0.85rem;
+        opacity: 0.9;
+        display: block;
+        margin-bottom: 0.3rem;
+      }
+
+      .schedina-total-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+
+      .error-message {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        padding: 1.5rem;
+        border-radius: 8px;
+        color: #856404;
+        margin-bottom: 2rem;
+      }
+
+      .filter-form {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+        padding: 1.5rem;
+        background: #f9f9f9;
+        border-radius: 8px;
+        margin-bottom: 2rem;
       }
 
       .filter-form label {
@@ -144,18 +371,15 @@
         color: var(--text-color);
       }
 
-      .filter-form input,
-      .filter-form select {
-        width: 100%;
+      .filter-form input {
         padding: 0.7rem;
         border: 1px solid var(--border-color);
         border-radius: 4px;
-        background: var(--bg-color);
+        background: white;
         font-size: 0.95rem;
       }
 
       .btn {
-        display: inline-block;
         padding: 0.7rem 1.5rem;
         border-radius: 6px;
         border: none;
@@ -164,151 +388,11 @@
         font-weight: 500;
         cursor: pointer;
         transition: background 0.2s;
-        text-decoration: none;
         font-size: 0.95rem;
       }
 
       .btn:hover {
         background: var(--accent-color-hover);
-      }
-
-      .btn-success {
-        background: var(--success-color);
-      }
-
-      .btn-success:hover {
-        background: #45a049;
-      }
-
-      .category-section {
-        margin-bottom: 2rem;
-      }
-
-      .category-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1rem;
-        background: linear-gradient(135deg, var(--accent-color), var(--accent-color-hover));
-        color: white;
-        border-radius: 6px;
-        margin-bottom: 1rem;
-      }
-
-      .category-header h3 {
-        margin: 0;
-        font-size: 1.2rem;
-      }
-
-      .category-header .badge {
-        background: rgba(255, 255, 255, 0.2);
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        font-size: 0.85rem;
-      }
-
-      .bet-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 1rem;
-      }
-
-      .bet-table th {
-        background: #f5f5f5;
-        padding: 0.8rem;
-        text-align: left;
-        font-weight: 600;
-        color: var(--header-color);
-        border-bottom: 2px solid var(--border-color);
-        font-size: 0.9rem;
-      }
-
-      .bet-table td {
-        padding: 0.8rem;
-        border-bottom: 1px solid var(--border-color);
-      }
-
-      .bet-table tr:hover {
-        background: #fafafa;
-      }
-
-      .confidence-high {
-        color: var(--fire-color);
-        font-weight: 700;
-      }
-
-      .confidence-medium {
-        color: var(--gold-color);
-        font-weight: 600;
-      }
-
-      .confidence-low {
-        color: var(--subtle-text-color);
-      }
-
-      .prob-bar {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-      }
-
-      .prob-bar-fill {
-        flex: 1;
-        height: 8px;
-        background: #e0e0e0;
-        border-radius: 4px;
-        overflow: hidden;
-      }
-
-      .prob-bar-fill-inner {
-        height: 100%;
-        background: linear-gradient(90deg, var(--success-color), var(--warning-color));
-        transition: width 0.3s;
-      }
-
-      .prob-text {
-        font-weight: 700;
-        min-width: 55px;
-        text-align: right;
-      }
-
-      .market-name {
-        font-weight: 600;
-        color: var(--header-color);
-      }
-
-      .match-info {
-        color: var(--subtle-text-color);
-        font-size: 0.9rem;
-      }
-
-      .value-positive {
-        color: var(--success-color);
-        font-weight: 600;
-      }
-
-      .value-negative {
-        color: var(--danger-color);
-      }
-
-      .error-message {
-        background: #fff3cd;
-        border: 1px solid #ffc107;
-        padding: 1rem;
-        border-radius: 6px;
-        color: #856404;
-        margin-bottom: 1rem;
-      }
-
-      .empty-state {
-        text-align: center;
-        padding: 3rem 1rem;
-        color: var(--subtle-text-color);
-      }
-
-      .empty-state h3 {
-        margin-bottom: 1rem;
-        color: var(--header-color);
       }
 
       @media (max-width: 768px) {
@@ -322,70 +406,20 @@
           align-items: flex-start;
         }
 
-        .bet-table {
-          font-size: 0.85rem;
+        .picks-grid {
+          grid-template-columns: 1fr;
         }
 
-        .bet-table th,
-        .bet-table td {
-          padding: 0.5rem;
+        .schedina-totals {
+          grid-template-columns: repeat(2, 1fr);
         }
-      }
-
-      .top-picks-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 1rem;
-      }
-
-      .pick-card {
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        padding: 1rem;
-        background: white;
-        transition: transform 0.2s, box-shadow 0.2s;
-      }
-
-      .pick-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px var(--shadow-color);
-      }
-
-      .pick-card .rank {
-        display: inline-block;
-        background: var(--accent-color);
-        color: white;
-        padding: 0.2rem 0.6rem;
-        border-radius: 4px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-      }
-
-      .pick-card .match {
-        font-weight: 600;
-        margin-bottom: 0.3rem;
-        color: var(--header-color);
-      }
-
-      .pick-card .market {
-        color: var(--accent-color);
-        font-weight: 500;
-        margin-bottom: 0.5rem;
-      }
-
-      .pick-card .prob-large {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: var(--fire-color);
-        margin: 0.5rem 0;
       }
     </style>
   </head>
   <body>
     <div class="container">
       <header>
-        <h1>🎯 Mercati Estesi - Sistema Avanzato</h1>
+        <h1>🎯 SCHEDINA COMPLETA - TUTTE LE PARTITE</h1>
         <div class="nav-links">
           <a href="/">← Dashboard</a>
           <a href="/predictions-xg">xG Analysis</a>
@@ -399,191 +433,230 @@
       </div>
       {% endif %}
 
+      <!-- Date Filter -->
+      <form method="GET" action="/extended-markets" class="filter-form">
+        <div>
+          <label>Seleziona Data</label>
+          <input type="date" name="date" value="{{ selected_date }}" required />
+        </div>
+        <button type="submit" class="btn">🔍 Carica Partite</button>
+      </form>
+
       <!-- Stats Overview -->
+      {% if stats and stats.total_matches > 0 %}
       <div class="stats-grid">
         <div class="stat-card">
-          <h3>Partite Analizzate</h3>
-          <div class="value">{{ stats.matches_analyzed }}</div>
+          <h3>Partite Totali</h3>
+          <div class="value">{{ stats.total_matches }}</div>
         </div>
         <div class="stat-card">
-          <h3>Scommesse Totali</h3>
-          <div class="value">{{ stats.total_bets }}</div>
+          <h3>Serie A</h3>
+          <div class="value">{{ stats.serie_a }}</div>
         </div>
         <div class="stat-card">
-          <h3>Scommesse Filtrate</h3>
-          <div class="value good">{{ stats.filtered_bets }}</div>
+          <h3>Premier League</h3>
+          <div class="value">{{ stats.premier }}</div>
         </div>
         <div class="stat-card">
-          <h3>Probabilità Media</h3>
-          <div class="value good">{{ stats.avg_prob }}%</div>
+          <h3>Schedine Generate</h3>
+          <div class="value">{{ stats.schedine_count }}</div>
         </div>
       </div>
+      {% endif %}
 
-      <!-- Filters -->
+      <!-- Serie A Matches -->
+      {% if partite_serie_a %}
       <div class="panel">
         <div class="panel-header">
-          <h2>⚙️ Filtri e Generazione</h2>
+          <h2>📋 SERIE A ({{ partite_serie_a|length }} partite)</h2>
         </div>
         <div class="panel-content">
-          <form method="POST" action="/generate-extended" class="filter-form">
-            <div>
-              <label>Data</label>
-              <input type="date" name="date" value="{{ selected_date }}" required />
+          {% for partita in partite_serie_a %}
+          <div class="match-card">
+            <div class="match-header">
+              <div>
+                <div class="match-teams">{{ loop.index }}. {{ partita.home }} vs {{ partita.away }}</div>
+                <div class="match-info">
+                  <span>🏆 {% if partita.league == 'SA' %}Serie A{% elif partita.league == 'PL' %}Premier League{% else %}{{ partita.league }}{% endif %}</span>
+                  <span class="match-time">⏰ {{ partita.time }}</span>
+                  <span>{{ partita.favorito }}</span>
+                </div>
+              </div>
             </div>
-            <div>
-              <label>Probabilità Minima</label>
-              <input type="number" name="min_prob" value="0.55" step="0.05" min="0.1" max="0.99" />
-            </div>
-            <div>
-              <label>Top N per Partita</label>
-              <input type="number" name="top_n" value="15" min="5" max="50" />
-            </div>
-            <div style="display: flex; align-items: flex-end;">
-              <button type="submit" class="btn btn-success" style="width: 100%;">
-                🚀 Genera Predizioni Estese
-              </button>
-            </div>
-          </form>
 
-          <form method="GET" action="/extended-markets" class="filter-form" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
-            <div>
-              <label>Filtra per Data</label>
-              <input type="date" name="date" value="{{ selected_date }}" />
+            <div class="match-1x2">
+              <div class="prob-item">
+                <span class="label">1 (Casa)</span>
+                <span class="value">{{ (partita.p_h * 100)|round(1) }}%</span>
+              </div>
+              <div class="prob-item">
+                <span class="label">X (Pareggio)</span>
+                <span class="value">{{ (partita.p_d * 100)|round(1) }}%</span>
+              </div>
+              <div class="prob-item">
+                <span class="label">2 (Trasferta)</span>
+                <span class="value">{{ (partita.p_a * 100)|round(1) }}%</span>
+              </div>
             </div>
-            <div>
-              <label>Probabilità Minima (%)</label>
-              <input type="number" name="min_prob" value="{{ min_prob * 100 }}" step="5" min="50" max="99" />
+
+            <div class="picks-grid">
+              <div class="pick-item pick-1">
+                <div class="pick-rank">🥇 Pick #1</div>
+                <div class="pick-market">{{ partita.pick_1[0] }}</div>
+                <div class="pick-prob">{{ (partita.pick_1[1] * 100)|round(1) }}%</div>
+                <div class="pick-quota">Quota ~{{ (1 / partita.pick_1[1])|round(2) }}</div>
+              </div>
+              <div class="pick-item pick-2">
+                <div class="pick-rank">🥈 Pick #2</div>
+                <div class="pick-market">{{ partita.pick_2[0] }}</div>
+                <div class="pick-prob">{{ (partita.pick_2[1] * 100)|round(1) }}%</div>
+                <div class="pick-quota">Quota ~{{ (1 / partita.pick_2[1])|round(2) }}</div>
+              </div>
+              <div class="pick-item pick-3">
+                <div class="pick-rank">🥉 Pick #3</div>
+                <div class="pick-market">{{ partita.pick_3[0] }}</div>
+                <div class="pick-prob">{{ (partita.pick_3[1] * 100)|round(1) }}%</div>
+                <div class="pick-quota">Quota ~{{ (1 / partita.pick_3[1])|round(2) }}</div>
+              </div>
             </div>
-            <div>
-              <label>Max per Partita</label>
-              <input type="number" name="max_per_match" value="{{ max_per_match }}" min="1" max="10" />
-            </div>
-            <div style="display: flex; align-items: flex-end;">
-              <button type="submit" class="btn" style="width: 100%;">
-                🔍 Applica Filtri
-              </button>
-            </div>
-          </form>
+          </div>
+          {% endfor %}
         </div>
       </div>
+      {% endif %}
 
-      {% if top_picks %}
-      <!-- Top 20 Best Picks -->
+      <!-- Premier League Matches -->
+      {% if partite_premier %}
       <div class="panel">
         <div class="panel-header">
-          <h2>🔥 Top 20 Scommesse Consigliate</h2>
+          <h2>📋 PREMIER LEAGUE ({{ partite_premier|length }} partite)</h2>
         </div>
         <div class="panel-content">
-          <div class="top-picks-grid">
-            {% for pick in top_picks[:20] %}
-            <div class="pick-card">
-              <span class="rank">#{{ loop.index }}</span>
-              <div class="match">{{ pick.home[:20] }} - {{ pick.away[:20] }}</div>
-              <div class="match-info" style="font-size: 0.85rem; margin-bottom: 0.5rem;">
-                {{ pick.league }} • ⏰ {{ pick.kickoff_time }}
-              </div>
-              <div class="market">{{ pick.market_name }} ({{ (pick.probability * 100)|round(1) }}%)</div>
-              <div class="prob-large">{{ (pick.probability * 100)|round(1) }}%</div>
-              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;">
-                <span class="confidence-{{ pick.confidence }}">{{ pick.confidence.upper() }}</span>
-                {% if pick.value %}
-                <span class="value-positive">Value: +{{ (pick.value * 100)|round(1) }}%</span>
-                {% endif %}
+          {% for partita in partite_premier %}
+          <div class="match-card">
+            <div class="match-header">
+              <div>
+                <div class="match-teams">{{ loop.index }}. {{ partita.home }} vs {{ partita.away }}</div>
+                <div class="match-info">
+                  <span>🏆 {% if partita.league == 'SA' %}Serie A{% elif partita.league == 'PL' %}Premier League{% else %}{{ partita.league }}{% endif %}</span>
+                  <span class="match-time">⏰ {{ partita.time }}</span>
+                  <span>{{ partita.favorito }}</span>
+                </div>
               </div>
             </div>
-            {% endfor %}
+
+            <div class="match-1x2">
+              <div class="prob-item">
+                <span class="label">1 (Casa)</span>
+                <span class="value">{{ (partita.p_h * 100)|round(1) }}%</span>
+              </div>
+              <div class="prob-item">
+                <span class="label">X (Pareggio)</span>
+                <span class="value">{{ (partita.p_d * 100)|round(1) }}%</span>
+              </div>
+              <div class="prob-item">
+                <span class="label">2 (Trasferta)</span>
+                <span class="value">{{ (partita.p_a * 100)|round(1) }}%</span>
+              </div>
+            </div>
+
+            <div class="picks-grid">
+              <div class="pick-item pick-1">
+                <div class="pick-rank">🥇 Pick #1</div>
+                <div class="pick-market">{{ partita.pick_1[0] }}</div>
+                <div class="pick-prob">{{ (partita.pick_1[1] * 100)|round(1) }}%</div>
+                <div class="pick-quota">Quota ~{{ (1 / partita.pick_1[1])|round(2) }}</div>
+              </div>
+              <div class="pick-item pick-2">
+                <div class="pick-rank">🥈 Pick #2</div>
+                <div class="pick-market">{{ partita.pick_2[0] }}</div>
+                <div class="pick-prob">{{ (partita.pick_2[1] * 100)|round(1) }}%</div>
+                <div class="pick-quota">Quota ~{{ (1 / partita.pick_2[1])|round(2) }}</div>
+              </div>
+              <div class="pick-item pick-3">
+                <div class="pick-rank">🥉 Pick #3</div>
+                <div class="pick-market">{{ partita.pick_3[0] }}</div>
+                <div class="pick-prob">{{ (partita.pick_3[1] * 100)|round(1) }}%</div>
+                <div class="pick-quota">Quota ~{{ (1 / partita.pick_3[1])|round(2) }}</div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Recommended Betting Slips -->
+      {% if schedine %}
+      <div class="panel">
+        <div class="panel-header">
+          <h2>🎯 SCHEDINE CONSIGLIATE</h2>
+        </div>
+        <div class="panel-content">
+          {% for schedina in schedine %}
+          <div class="schedina-card">
+            <div class="schedina-header">
+              <div>
+                <h3 class="schedina-title">{{ schedina.nome }}</h3>
+                <p class="schedina-desc">{{ schedina.descrizione }}</p>
+              </div>
+            </div>
+
+            <div class="schedina-matches">
+              {% for partita in schedina.partite %}
+              <div class="schedina-match">
+                <span class="schedina-match-name">{{ partita.home }} vs {{ partita.away }}</span>
+                <span class="schedina-match-pick">{{ partita.pick_1[0] }} ({{ (partita.pick_1[1] * 100)|round(1) }}%)</span>
+              </div>
+              {% endfor %}
+            </div>
+
+            <div class="schedina-totals">
+              <div class="schedina-total-item">
+                <span class="schedina-total-label">Probabilità</span>
+                <span class="schedina-total-value">{{ (schedina.prob * 100)|round(2) }}%</span>
+              </div>
+              <div class="schedina-total-item">
+                <span class="schedina-total-label">Quota Totale</span>
+                <span class="schedina-total-value">{{ schedina.quota|round(2) }}</span>
+              </div>
+              <div class="schedina-total-item">
+                <span class="schedina-total-label">Vincita (10€)</span>
+                <span class="schedina-total-value">{{ schedina.vincita_10|round(2) }}€</span>
+              </div>
+              <div class="schedina-total-item">
+                <span class="schedina-total-label">Profitto (10€)</span>
+                <span class="schedina-total-value">{{ schedina.profitto_10|round(2) }}€</span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if not stats or stats.total_matches == 0 %}
+      <div class="panel">
+        <div class="panel-content">
+          <div style="text-align: center; padding: 3rem; color: var(--subtle-text-color);">
+            <h3>📅 Seleziona una data per visualizzare le partite</h3>
+            <p>Usa il filtro sopra per caricare tutte le partite del giorno selezionato.</p>
           </div>
         </div>
       </div>
       {% endif %}
 
-      <!-- Categories -->
-      {% for cat_name, cat_data in categories.items() %}
-      <div class="panel category-section">
-        <div class="category-header">
-          <h3>{{ cat_name }}</h3>
-          <div class="badge">{{ cat_data.count }} scommesse • Prob Media: {{ cat_data.avg_prob }}%</div>
-        </div>
-        <div class="panel-content">
-          <table class="bet-table">
-            <thead>
-              <tr>
-                <th>Partita</th>
-                <th>Orario</th>
-                <th>Mercato</th>
-                <th>Probabilità</th>
-                <th>Value</th>
-                <th>Confidence</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for bet in cat_data.bets %}
-              <tr>
-                <td>
-                  <div class="market-name">{{ bet.home[:25] }} - {{ bet.away[:25] }}</div>
-                  <div class="match-info">{{ bet.league }}</div>
-                </td>
-                <td>
-                  <strong style="color: var(--accent-color);">⏰ {{ bet.kickoff_time }}</strong>
-                </td>
-                <td>
-                  <strong>{{ bet.market_name }} ({{ (bet.probability * 100)|round(1) }}%)</strong>
-                </td>
-                <td>
-                  <div class="prob-bar">
-                    <div class="prob-bar-fill">
-                      <div class="prob-bar-fill-inner" style="width: {{ (bet.probability * 100)|round(0) }}%;"></div>
-                    </div>
-                    <span class="prob-text">{{ (bet.probability * 100)|round(1) }}%</span>
-                  </div>
-                </td>
-                <td>
-                  {% if bet.value %}
-                  <span class="value-positive">+{{ (bet.value * 100)|round(1) }}%</span>
-                  {% else %}
-                  <span>-</span>
-                  {% endif %}
-                </td>
-                <td>
-                  <span class="confidence-{{ bet.confidence }}">
-                    {% if bet.confidence == 'high' %}🔥🔥{% elif bet.confidence == 'medium' %}🔥{% else %}○{% endif %}
-                    {{ bet.confidence.upper() }}
-                  </span>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {% endfor %}
-
-      {% if not categories and not error %}
-      <div class="empty-state">
-        <h3>📊 Nessuna Scommessa Disponibile</h3>
-        <p>Genera predizioni estese usando il form sopra per vedere i risultati.</p>
-        <p>Il sistema genererà automaticamente 200+ scommesse su 6 categorie di mercati.</p>
-      </div>
-      {% endif %}
-
+      <!-- Info Footer -->
       <div class="panel">
-        <div class="panel-header">
-          <h2>ℹ️ Informazioni Mercati Estesi</h2>
+        <div class="panel-header" style="background: #f5f5f5; color: var(--header-color);">
+          <h2>ℹ️ Informazioni Sistema</h2>
         </div>
         <div class="panel-content">
-          <h3>Categorie Disponibili:</h3>
-          <ul>
-            <li><strong>Over/Under</strong>: Multiple linee (0.5, 1.5, 2.5, 3.5, 4.5, 5.5 goals)</li>
-            <li><strong>Team Totals</strong>: Over/Under per singola squadra (Home/Away)</li>
-            <li><strong>Doppia Chance (DC)</strong>: 1X, X2, 12 - maggiore sicurezza</li>
-            <li><strong>Multigol</strong>: Intervalli di gol (1-2, 1-3, 2-3, 2-4, 2-5, 3-5)</li>
-            <li><strong>Goal/No Goal</strong>: GG (entrambe segnano), NG (almeno una non segna)</li>
-            <li><strong>Combo Markets</strong>: Combinazioni (DC+GG, DC+OU, ecc.)</li>
-          </ul>
-
-          <h3 style="margin-top: 1.5rem;">Strategia Consigliata:</h3>
-          <p><strong>Sistema Parziale (Ottimale)</strong>: Gioca le Top 20 scommesse con sistema ridotto 16/20 (richiedi 16 vincenti su 20).</p>
-          <p>Con probabilità medie del 95%, hai ~50% di successo e ROI atteso +20-30%.</p>
+          <p><strong>Sistema di Predizione:</strong> Basato su distribuzione di Poisson con xG (Expected Goals)</p>
+          <p><strong>Mercati Analizzati:</strong> 1X2, Doppia Chance (1X, X2, 12), Over/Under (1.5, 2.5, 3.5), GG/NG, Multigol (1-3, 2-5)</p>
+          <p><strong>Top 3 Picks:</strong> Per ogni partita vengono mostrati i 3 esiti con probabilità più alta</p>
+          <p><strong>Schedine Consigliate:</strong> Generate automaticamente in base alle probabilità e alla sicurezza dei pick</p>
+          <p><strong>⚠️ Note Importante:</strong> I modelli ML sono attualmente disabilitati. Il sistema usa solo calcoli matematici Poisson (accurati ma conservativi).</p>
         </div>
       </div>
     </div>

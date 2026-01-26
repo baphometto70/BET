@@ -823,95 +823,234 @@ def results_view():
 # ====== EXTENDED MARKETS ======
 @APP.get("/extended-markets")
 def extended_markets_view():
-    """Visualizza mercati estesi (DC, Multigol, GG/NG, ecc.)."""
+    """Visualizza schedina completa con TUTTE le partite e top 3 picks per ognuna."""
     try:
-        import pandas as pd
+        from scipy.stats import poisson
         from datetime import datetime
 
-        date_param = request.args.get('date')
-        min_prob = float(request.args.get('min_prob', 0.60))
-        max_per_match = int(request.args.get('max_per_match', 3))
-
-        # Carica extended predictions
-        extended_path = ROOT / "extended_predictions.csv"
-        if not extended_path.exists():
+        if not SessionLocal or not Fixture:
             return render_template('extended_markets.html',
-                                 error="Nessuna predizione estesa disponibile. Genera prima le predizioni.",
-                                 selected_date=date_param or datetime.now().strftime("%Y-%m-%d"),
-                                 categories={},
-                                 top_picks=[],
+                                 error="Database non configurato.",
+                                 selected_date="",
+                                 partite_serie_a=[],
+                                 partite_premier=[],
+                                 schedine=[],
                                  stats={})
 
-        df = pd.read_csv(extended_path)
+        date_param = request.args.get('date') or date.today().isoformat()
 
-        # Filtra per data se specificata
-        if date_param:
-            # Estrai la data dal match_id (formato: YYYYMMDD_id_league)
-            df['match_date'] = df['match_id'].str[:8]
-            target_date = date_param.replace('-', '')
-            df = df[df['match_date'] == target_date]
+        # Query database per tutte le partite della data specificata
+        db = SessionLocal()
+        try:
+            target_date = datetime.strptime(date_param, "%Y-%m-%d").date()
+            fixtures = db.query(Fixture).filter(Fixture.date == target_date).all()
 
-        # Filtra per probabilità minima
-        df_filtered = df[df['probability'] >= min_prob].copy()
+            if not fixtures:
+                return render_template('extended_markets.html',
+                                     error=f"Nessuna partita trovata per il {date_param}",
+                                     selected_date=date_param,
+                                     partite_serie_a=[],
+                                     partite_premier=[],
+                                     schedine=[],
+                                     stats={})
 
-        # Limita per match
-        from collections import defaultdict
-        match_counts = defaultdict(int)
-        selected_bets = []
+            tutte_partite = []
 
-        for _, bet in df_filtered.sort_values('probability', ascending=False).iterrows():
-            match_id = bet['match_id']
-            if match_counts[match_id] >= max_per_match:
-                continue
-            selected_bets.append(bet)
-            match_counts[match_id] += 1
+            for fix in fixtures:
+                if not fix.feature:
+                    continue
 
-        df_selected = pd.DataFrame(selected_bets) if selected_bets else pd.DataFrame()
+                feat = fix.feature
+                if not all([feat.xg_for_home, feat.xg_against_home, feat.xg_for_away, feat.xg_against_away]):
+                    continue
 
-        # Statistiche per categoria
-        if not df_selected.empty:
-            categories = {}
-            for cat in df_selected['category'].unique():
-                cat_df = df_selected[df_selected['category'] == cat]
-                categories[cat] = {
-                    'count': len(cat_df),
-                    'avg_prob': round(cat_df['probability'].mean() * 100, 1),
-                    'bets': cat_df.head(10).to_dict('records')
-                }
+                # Calcola lambda (gol attesi)
+                lam_h = (feat.xg_for_home + feat.xg_against_away) / 2
+                lam_a = (feat.xg_for_away + feat.xg_against_home) / 2
+                lam_tot = lam_h + lam_a
 
-            # Top 20 picks
-            top_picks = df_selected.nlargest(20, 'probability').to_dict('records')
+                # Probabilità 1X2
+                p_h = sum(poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a) for i in range(10) for j in range(i))
+                p_d = sum(poisson.pmf(i, lam_h) * poisson.pmf(i, lam_a) for i in range(10))
+                p_a = 1 - p_h - p_d
 
-            # Statistiche generali
+                # Doppia Chance
+                p_1x = p_h + p_d
+                p_x2 = p_d + p_a
+                p_12 = p_h + p_a
+
+                # Over/Under
+                p_over15 = 1 - sum(poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
+                                   for i in range(2) for j in range(2) if i+j <= 1)
+                p_over25 = 1 - sum(poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
+                                   for i in range(3) for j in range(3) if i+j <= 2)
+                p_under25 = 1 - p_over25
+                p_under35 = sum(poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
+                                for i in range(4) for j in range(4) if i+j <= 3)
+
+                # GG/NG
+                p_gg = 1 - (poisson.pmf(0, lam_h) * sum(poisson.pmf(j, lam_a) for j in range(10)) +
+                            sum(poisson.pmf(i, lam_h) for i in range(10)) * poisson.pmf(0, lam_a) -
+                            poisson.pmf(0, lam_h) * poisson.pmf(0, lam_a))
+                p_ng = 1 - p_gg
+
+                # Multigol
+                p_mg_13 = sum(poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
+                              for i in range(4) for j in range(4) if 1 <= i+j <= 3)
+                p_mg_25 = sum(poisson.pmf(i, lam_h) * poisson.pmf(j, lam_a)
+                              for i in range(6) for j in range(6) if 2 <= i+j <= 5)
+
+                # Determina il pick migliore
+                picks = [
+                    ('1', p_h), ('X', p_d), ('2', p_a),
+                    ('1X', p_1x), ('X2', p_x2), ('12', p_12),
+                    ('Over 1.5', p_over15), ('Over 2.5', p_over25),
+                    ('Under 2.5', p_under25), ('Under 3.5', p_under35),
+                    ('GG', p_gg), ('NG', p_ng),
+                    ('MG 1-3', p_mg_13), ('MG 2-5', p_mg_25),
+                ]
+
+                picks_sorted = sorted(picks, key=lambda x: x[1], reverse=True)
+
+                tutte_partite.append({
+                    'home': fix.home,
+                    'away': fix.away,
+                    'time': fix.time_local or fix.time,
+                    'league': fix.league_code,
+                    'lam_h': lam_h,
+                    'lam_a': lam_a,
+                    'lam_tot': lam_tot,
+                    'p_h': p_h,
+                    'p_d': p_d,
+                    'p_a': p_a,
+                    'pick_1': picks_sorted[0],
+                    'pick_2': picks_sorted[1],
+                    'pick_3': picks_sorted[2],
+                    'favorito': 'CASA' if p_h > max(p_d, p_a) else 'TRASFERTA' if p_a > max(p_h, p_d) else 'EQUILIBRIO'
+                })
+
+            # Separa Serie A e Premier League
+            partite_serie_a = [p for p in tutte_partite if p['league'] == 'SA']
+            partite_premier = [p for p in tutte_partite if p['league'] == 'PL']
+
+            # Genera schedine consigliate
+            schedine = []
+
+            # SCHEDINA 1: Serie A completa
+            if partite_serie_a:
+                prob_sa = 1.0
+                quota_sa = 1.0
+                for p in partite_serie_a:
+                    prob_sa *= p['pick_1'][1]
+                    quota_sa *= (1 / p['pick_1'][1])
+
+                schedine.append({
+                    'nome': 'SERIE A COMPLETA',
+                    'descrizione': f'{len(partite_serie_a)} eventi - Pick migliori',
+                    'partite': partite_serie_a,
+                    'prob': prob_sa,
+                    'quota': quota_sa,
+                    'vincita_10': quota_sa * 10,
+                    'profitto_10': (quota_sa - 1) * 10
+                })
+
+            # SCHEDINA 2: Premier top 5
+            if len(partite_premier) >= 5:
+                premier_top5 = partite_premier[:5]
+                prob_pl = 1.0
+                quota_pl = 1.0
+                for p in premier_top5:
+                    prob_pl *= p['pick_1'][1]
+                    quota_pl *= (1 / p['pick_1'][1])
+
+                schedine.append({
+                    'nome': 'PREMIER LEAGUE TOP 5',
+                    'descrizione': 'Pick migliori',
+                    'partite': premier_top5,
+                    'prob': prob_pl,
+                    'quota': quota_pl,
+                    'vincita_10': quota_pl * 10,
+                    'profitto_10': (quota_pl - 1) * 10
+                })
+
+            # SCHEDINA 3: Mix 6 più sicuri
+            if len(tutte_partite) >= 6:
+                all_sorted = sorted(tutte_partite, key=lambda x: x['pick_1'][1], reverse=True)[:6]
+                prob_mix = 1.0
+                quota_mix = 1.0
+                for p in all_sorted:
+                    prob_mix *= p['pick_1'][1]
+                    quota_mix *= (1 / p['pick_1'][1])
+
+                schedine.append({
+                    'nome': 'MIX 6 PIÙ SICURI',
+                    'descrizione': 'Probabilità più alte',
+                    'partite': all_sorted,
+                    'prob': prob_mix,
+                    'quota': quota_mix,
+                    'vincita_10': quota_mix * 10,
+                    'profitto_10': (quota_mix - 1) * 10
+                })
+
+            # SCHEDINA 4: Favoriti chiari
+            favoriti = []
+            for p in tutte_partite:
+                p_1x = p['p_h'] + p['p_d']
+                p_x2 = p['p_d'] + p['p_a']
+
+                if p['p_h'] > p['p_a'] and p_1x > 0.73:
+                    favoriti.append((p, '1X', p_1x))
+                elif p['p_a'] > p['p_h'] and p_x2 > 0.73:
+                    favoriti.append((p, 'X2', p_x2))
+
+            if favoriti:
+                prob_fav = 1.0
+                quota_fav = 1.0
+                favoriti_partite = []
+                for p, pick, prob in favoriti[:5]:
+                    prob_fav *= prob
+                    quota_fav *= (1 / prob)
+                    p_copy = p.copy()
+                    p_copy['pick_1'] = (pick, prob)
+                    favoriti_partite.append(p_copy)
+
+                schedine.append({
+                    'nome': 'FAVORITI CHIARI',
+                    'descrizione': '1X o X2 con >73%',
+                    'partite': favoriti_partite,
+                    'prob': prob_fav,
+                    'quota': quota_fav,
+                    'vincita_10': quota_fav * 10,
+                    'profitto_10': (quota_fav - 1) * 10
+                })
+
             stats = {
-                'total_bets': len(df),
-                'filtered_bets': len(df_selected),
-                'avg_prob': round(df_selected['probability'].mean() * 100, 1) if len(df_selected) > 0 else 0,
-                'min_prob_filter': min_prob * 100,
-                'matches_analyzed': df['match_id'].nunique()
+                'total_matches': len(tutte_partite),
+                'serie_a': len(partite_serie_a),
+                'premier': len(partite_premier),
+                'schedine_count': len(schedine)
             }
-        else:
-            categories = {}
-            top_picks = []
-            stats = {'total_bets': 0, 'filtered_bets': 0, 'avg_prob': 0, 'min_prob_filter': min_prob * 100, 'matches_analyzed': 0}
 
-        return render_template('extended_markets.html',
-                             categories=categories,
-                             top_picks=top_picks,
-                             stats=stats,
-                             selected_date=date_param or datetime.now().strftime("%Y-%m-%d"),
-                             min_prob=min_prob,
-                             max_per_match=max_per_match,
-                             error=None)
+            return render_template('extended_markets.html',
+                                 selected_date=date_param,
+                                 partite_serie_a=partite_serie_a,
+                                 partite_premier=partite_premier,
+                                 schedine=schedine,
+                                 stats=stats,
+                                 error=None)
+
+        finally:
+            db.close()
 
     except Exception as e:
-        logger.error(f"Errore nel caricamento mercati estesi: {e}", exc_info=True)
+        logger.error(f"Errore nel caricamento schedina completa: {e}", exc_info=True)
         return render_template('extended_markets.html',
                              error=f"Errore: {str(e)}",
-                             categories={},
-                             top_picks=[],
-                             stats={},
-                             selected_date=date_param or datetime.now().strftime("%Y-%m-%d"))
+                             selected_date=date_param or "",
+                             partite_serie_a=[],
+                             partite_premier=[],
+                             schedine=[],
+                             stats={})
 
 
 @APP.post("/generate-extended")

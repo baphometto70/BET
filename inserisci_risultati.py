@@ -8,21 +8,14 @@ from database import SessionLocal
 from models import Fixture
 from datetime import date
 
-# Risultati forniti dall'utente - AGGIORNATI 4 gennaio 2026
+# Risultati forniti dall'utente - AGGIORNATI 6 gennaio 2026
 risultati = {
-    # Serie A
-    'Inter': {'away': 'Bologna', 'home_goals': 3, 'away_goals': 1},
+    # Serie A - 6 gennaio 2026
+    'Lecce': {'away': 'Roma', 'home_goals': 0, 'away_goals': 2},
+    'Sassuolo': {'away': 'Juventus', 'home_goals': 0, 'away_goals': 3},
 
-    # Premier League
-    'Manchester City': {'away': 'Chelsea', 'home_goals': 1, 'away_goals': 1},
-
-    # LaLiga / Primera Division
-    'Alavés': {'away': 'Real Oviedo', 'home_goals': 1, 'away_goals': 1},
-    'Mallorca': {'away': 'Girona', 'home_goals': 1, 'away_goals': 2},
-    'Real Sociedad de Fútbol': {'away': 'Club Atlético de Madrid', 'home_goals': 1, 'away_goals': 1},
-
-    # Ligue 1
-    'Paris Saint-Germain FC': {'away': 'Paris FC', 'home_goals': 2, 'away_goals': 1},
+    # Premier League - 6 gennaio 2026
+    'West Ham': {'away': 'Nottingham Forest', 'home_goals': 1, 'away_goals': 2},
 }
 
 db = SessionLocal()
@@ -36,7 +29,7 @@ not_found = 0
 for home_team, data in risultati.items():
     # Cerca la partita nel database
     matches = db.query(Fixture).filter(
-        Fixture.date == date(2026, 1, 4),
+        Fixture.date == date(2026, 1, 6),
         Fixture.home.contains(home_team)
     ).all()
 
