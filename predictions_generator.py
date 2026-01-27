@@ -990,7 +990,15 @@ def generate_predictions(date_str: Optional[str] = None) -> List[Dict]:
 if __name__ == "__main__":
     import json
     
-    date = sys.argv[1] if len(sys.argv) > 1 else None
+    # Parse --date argument
+    date = None
+    if len(sys.argv) > 1:
+        if '--date' in sys.argv:
+            idx = sys.argv.index('--date')
+            if idx + 1 < len(sys.argv):
+                date = sys.argv[idx + 1]
+        else:
+            date = sys.argv[1]
     
     preds = generate_predictions(date)
     

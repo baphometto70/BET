@@ -79,9 +79,7 @@ def generate_report(date_str: str = None):
         p12 = p1 + p2
         
         # Advanced markets
-        pmg13 = (pred.prob_mg_1_3 or 0.0) *
-
- 100
+        pmg13 = (pred.prob_mg_1_3 or 0.0) * 100
         pmg24 = (pred.prob_mg_2_4 or 0.0) * 100
         pc1o = (pred.prob_combo_1_over or 0.0) * 100
         pc1xo = (pred.prob_combo_1x_over or 0.0) * 100
