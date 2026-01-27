@@ -536,6 +536,17 @@ def generate_predictions(date_str: Optional[str] = None) -> List[Dict]:
         for fixture in fixtures:
             mid = fixture.match_id
             
+            # Skip matches that have already started or finished
+            time_str = fixture.time_local or fixture.time
+            if time_str:
+                try:
+                    kickoff_time = datetime.strptime(time_str, "%H:%M").time()
+                    kickoff_datetime = datetime.combine(fixture.date, kickoff_time)
+                    if kickoff_datetime <= datetime.now():
+                        continue  # Skip past matches
+                except Exception:
+                    pass  # If time parsing fails, proceed anyway
+            
             # Fetch odds
             odds_obj = db.query(Odds).filter(Odds.match_id == mid).first()
             
