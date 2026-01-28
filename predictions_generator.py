@@ -28,8 +28,8 @@ from rapidfuzz import fuzz
 import joblib
 import json
 
-# Neural Reasoning Engine - applies contextual intelligence as final layer
-from neural_reasoning_engine import NeuralReasoningEngine
+# Neural Reasoning Engine V2 - PESANTE E INTELLIGENTE (applica fino a ±30%)
+from neural_reasoning_engine_v2 import NeuralReasoningEngineV2
 
 # Heuristica per fallback quando mancano dati xG
 STRONG_TEAMS = {
@@ -657,8 +657,8 @@ def generate_predictions(date_str: Optional[str] = None) -> List[Dict]:
             # Apply contextual intelligence as last step before pick determination
             try:
                 if not hasattr(generate_predictions, 'neural_engine'):
-                    # Initialize neural engine once
-                    generate_predictions.neural_engine = NeuralReasoningEngine(
+                    # Initialize neural engine V2 (PESANTE) once
+                    generate_predictions.neural_engine = NeuralReasoningEngineV2(
                         db_path=str(Path(ROOT) / "bet.db")
                     )
                 
