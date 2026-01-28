@@ -28,6 +28,9 @@ from rapidfuzz import fuzz
 import joblib
 import json
 
+# Neural Reasoning Engine - applies contextual intelligence as final layer
+from neural_reasoning_engine import NeuralReasoningEngine
+
 # Heuristica per fallback quando mancano dati xG
 STRONG_TEAMS = {
     "SA": ["Inter", "Milan", "Juventus", "Napoli", "Roma", "Lazio", "Atalanta"],
@@ -648,6 +651,45 @@ def generate_predictions(date_str: Optional[str] = None) -> List[Dict]:
                         prob_2_xg / tot_blend,
                     )
             
+            # ==========================================
+            # 🧠 NEURAL REASONING - FINAL HEAVY LAYER
+            # ==========================================
+            # Apply contextual intelligence as last step before pick determination
+            try:
+                if not hasattr(generate_predictions, 'neural_engine'):
+                    # Initialize neural engine once
+                    generate_predictions.neural_engine = NeuralReasoningEngine(
+                        db_path=str(Path(ROOT) / "bet.db")
+                    )
+                
+                # Apply neural reasoning
+                neural_prob_1, neural_prob_x, neural_prob_2, reasoning = \
+                    generate_predictions.neural_engine.apply_reasoning(
+                        match_id=mid,
+                        home=fixture.home,
+                        away=fixture.away,
+                        league=fixture.league,
+                        date=fixture.date,
+                        ml_prob_1=prob_1_xg,
+                        ml_prob_x=prob_x_xg,
+                        ml_prob_2=prob_2_xg
+                    )
+                
+                # Replace probabilities with neural-adjusted versions
+                prob_1_xg = neural_prob_1
+                prob_x_xg = neural_prob_x
+                prob_2_xg = neural_prob_2
+                
+                neural_reasoning_summary = reasoning.get('reasoning_summary', '')
+                neural_adjustments = f"1:{reasoning.get('home_change_pct', 0):+.1f}% 2:{reasoning.get('away_change_pct', 0):+.1f}%"
+                
+            except Exception as e:
+                # If neural reasoning fails, continue with original probabilities
+                print(f"[WARN] Neural reasoning failed for {mid}: {e}")
+                neural_reasoning_summary = f"Neural reasoning unavailable: {e}"
+                neural_adjustments = "N/A"
+            
+            
             # Determina il pick migliore (valore positivo)
             best_pick = None
             best_value = 0.0
@@ -972,6 +1014,10 @@ def generate_predictions(date_str: Optional[str] = None) -> List[Dict]:
                 pred_obj.prob_mg_2_4 = float(prob_mg_2_4)
                 pred_obj.prob_combo_1_over = float(p_1_over15)
                 pred_obj.prob_combo_1x_over = float(p_1x_over15)
+                
+                # Save neural reasoning data
+                pred_obj.neural_reasoning = neural_reasoning_summary
+                pred_obj.neural_adjustments = neural_adjustments
                 
                 db.add(pred_obj)
                 db.commit()
